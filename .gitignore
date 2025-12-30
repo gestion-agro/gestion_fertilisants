@@ -1,16 +1,30 @@
-# Python
-#venv/
+# ===== Python =====
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Binaries
+# Environnement virtuel
+venv/
+.env
+
+# ===== PyInstaller =====
+build/
+dist/
+*.spec
+
+# Binaires
 *.exe
-
-# Qt / PySide
-*.so
 *.dll
+*.so
 *.dylib
 
-# Environnements
-.env
+# ===== OS / éditeur =====
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
 
