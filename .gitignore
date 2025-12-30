@@ -1,5 +1,16 @@
-# dossier build
-/dist/
+# Python
+#venv/
+__pycache__/
+*.pyc
 
-# cache python
-/__pycache__/
+# Binaries
+*.exe
+
+# Qt / PySide
+*.so
+*.dll
+*.dylib
+
+# Environnements
+.env
+
