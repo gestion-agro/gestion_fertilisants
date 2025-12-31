@@ -28,7 +28,7 @@ import numpy as np
 class GestionFertilisants(QWidget):
     def __init__(self):
         super().__init__()
-        self.fert_base = self.charger_fertilisant()
+
         self.setWindowTitle("Gestion des fertilisants")
         self.setWindowIcon(QIcon("icon.ico"))
         self.resize(420, 280)
@@ -75,8 +75,12 @@ class GestionFertilisants(QWidget):
     # Ajout fertilisant
     def ajout(self):
         from ui.ajouter_fertilisant import AjouterFertilisantWindow
-        self.ajout = AjouterFertilisantWindow()
-        self.ajout.show()
+        self.ajout_window = AjouterFertilisantWindow()
+
+        #connecter le signal pour recharger les fertilisants
+        self.ajout_window.fertilisant_ajoute.connect(self.recharger_fertilisant)
+        
+        self.ajout_window.show()
     # ======================
 
     # Charger la base des fertilisant
@@ -91,6 +95,12 @@ class GestionFertilisants(QWidget):
             return data if isinstance(data, list) else []
     # =======================
 
+    # Recharger les fertilisant
+    def recharger_fertilisant(self):
+        self.fert_base = self.charger_fertilisant()
+        self.remplir_table()
+    # =======================
+
     # Remplissage du tableau
     def remplir_table(self):
         self.table.setRowCount(0)
@@ -99,7 +109,7 @@ class GestionFertilisants(QWidget):
             self.ajouter_ligne(fert)
 
         self.table.resizeColumnsToContents()
-        self.charger_fertilisant()
+        #self.charger_fertilisant()
     # ======================
 
     # Ajouter ligne
@@ -115,7 +125,12 @@ class GestionFertilisants(QWidget):
         condi = f'{fert.get("conditionnement", "")} {fert.get("unite", "")}'
         self.table.setItem(row, 4, QTableWidgetItem(condi))
 
-        self.table.setItem(row, 5, QTableWidgetItem(str(fert.get("prix", ""))))
+        prix = fert.get("prix", "")
+        try:
+            prix = f"{float(prix):.2f} €"
+        except:
+            prix = ""
+        self.table.setItem(row, 5, QTableWidgetItem(prix))
 
         # Actions
         btn_modif = QPushButton("Modifier")
@@ -136,6 +151,7 @@ class GestionFertilisants(QWidget):
         action_widget.setLayout(action_layout)
 
         self.table.setCellWidget(row, 6, action_widget)
+
     # ======================
 
     # Supression fertilisant
@@ -147,10 +163,10 @@ class GestionFertilisants(QWidget):
             self,
             "Confirmation",
             f"Supprimer le fertilisant « {fert['nom']} » ?",
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No # pyright: ignore[reportAttributeAccessIssue]
             )
 
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.Yes: # pyright: ignore[reportAttributeAccessIssue]
             return
 
         self.fert_base = [f for f in self.fert_base if f != fert]
@@ -158,7 +174,7 @@ class GestionFertilisants(QWidget):
         with open(FERT_FILE, "w", encoding="utf-8") as f:
             json.dump(self.fert_base, f, indent=2, ensure_ascii=False)
 
-        self.remplir_table
+        self.recharger_fertilisant()
     # ====================
 
     # Modifications fertilisant
