@@ -39,7 +39,7 @@ build:
 	$(VENV)/bin/pyinstaller \
 	--onefile \
 	--windowed \
-	--icon-icon.ico \
+	--icon=icon.ico \
 	--name=gestion_fertilisants \
 	$(APP)
 

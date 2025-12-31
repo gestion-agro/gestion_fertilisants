@@ -1,6 +1,4 @@
-ltgraph==0.17.5
 numpy==2.3.5
-packaging==25.0
 pyinstaller==6.17.0
 pyinstaller-hooks-contrib==2025.10
 PySide6==6.10.1
