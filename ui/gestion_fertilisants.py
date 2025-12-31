@@ -92,7 +92,14 @@ class GestionFertilisants(QWidget):
 
         with open(FERT_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            return data if isinstance(data, list) else []
+
+        if not isinstance(data, list):
+            return[]
+        
+        # tri alphabétique
+        data.sort(key=lambda f: f.get("nom", "").lower())
+
+        return data
     # =======================
 
     # Recharger les fertilisant
@@ -183,5 +190,9 @@ class GestionFertilisants(QWidget):
         fert = btn.property("fert")
 
         from ui.ajouter_fertilisant import AjouterFertilisantWindow
-        self.edit = AjouterFertilisantWindow(fert)
-        self.edit.show() 
+        self.edit_window = AjouterFertilisantWindow(fert)
+
+        # connecter le signal
+        self.edit_window.fertilisant_ajoute.connect(self.recharger_fertilisant)
+
+        self.edit_window.show()

@@ -12,51 +12,47 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QDoubleValidator, QIntValidator
 
-# DATA_DIR = Path("data")
-# FERT_FILE = DATA_DIR / "fertilisants.json"
-
 
 class AjouterFertilisantWindow(QWidget):
     fertilisant_ajoute = Signal()
 
-    def __init__(self):
+    def __init__(self, fertilisant=None):
         super().__init__()
-        self.setWindowTitle("Ajouter un fertilisant")
+        self.setWindowTitle("Ajouter un fertilisant" if fertilisant is None else "Modifier un fertilisant")
         self.resize(300, 200)
 
-        # validateur nombre
+        self.editing = fertilisant  # stocker le fertilisant à modifier (ou None)
+
+        # validateurs
         validateur_NPK = QDoubleValidator(0.0, 100.0, 1, self)
-        validateur_NPK.setNotation(QDoubleValidator.StandardNotation)
-
         validateur_condi = QIntValidator(0, 100000, self)
-
         validateur_prix = QDoubleValidator(0.0, 10000.0, 2, self)
-        validateur_prix.setNotation(QDoubleValidator.StandardNotation)        
 
-        # Layout principale
+        # layout principal
         layout = QVBoxLayout(self)
-
-        # Formulaire
         form = QFormLayout()
 
+        # champs
         self.nom_input = QLineEdit()
         self.n_input = QLineEdit()
         self.p_input = QLineEdit()
         self.k_input = QLineEdit()
-
-        # Conditionnement + liste unité cote à cote
-        hbox = QHBoxLayout()
-
         self.condi_input = QLineEdit()
-
         self.liste = QComboBox()
-        self.liste.setEditable(False)
         self.liste.addItems(["kg", "L"])
+        self.prix_input = QLineEdit()
 
+        # validateurs
+        self.n_input.setValidator(validateur_NPK)
+        self.p_input.setValidator(validateur_NPK)
+        self.k_input.setValidator(validateur_NPK)
+        self.condi_input.setValidator(validateur_condi)
+        self.prix_input.setValidator(validateur_prix)
+
+        # Conditionnement avec unité
+        hbox = QHBoxLayout()
         hbox.addWidget(self.condi_input, 3)
         hbox.addWidget(self.liste, 1)
-
-        self.prix_input = QLineEdit()
 
         form.addRow("Nom :", self.nom_input)
         form.addRow("N :", self.n_input)
@@ -65,85 +61,83 @@ class AjouterFertilisantWindow(QWidget):
         form.addRow("Condit unitaire :", hbox)
         form.addRow("Prix unitaire :", self.prix_input)
 
-        self.n_input.setValidator(validateur_NPK)
-        self.p_input.setValidator(validateur_NPK)
-        self.k_input.setValidator(validateur_NPK)
-        self.condi_input.setValidator(validateur_condi)
-        self.prix_input.setValidator(validateur_prix)
-
-
         layout.addLayout(form)
 
+        # préremplissage si on modifie
+        if fertilisant:
+            self.nom_input.setText(fertilisant.get("nom", ""))
+            self.n_input.setText(str(fertilisant.get("N", "")))
+            self.p_input.setText(str(fertilisant.get("P", "")))
+            self.k_input.setText(str(fertilisant.get("K", "")))
+            self.condi_input.setText(str(fertilisant.get("conditionnement", "")))
+            unite = fertilisant.get("unite", "kg")
+            index = self.liste.findText(unite)
+            if index >= 0:
+                self.liste.setCurrentIndex(index)
+            self.prix_input.setText(str(fertilisant.get("prix", "")))
+
+        # bouton enregistrer
         self.btn_save = QPushButton("Enregistrer")
         self.btn_save.clicked.connect(self.enregistrer)
         layout.addWidget(self.btn_save)
 
+        # Quiter
+        btn_quitter = QPushButton("Annuler")
+        btn_quitter.clicked.connect(self.quitter)
+        layout.addWidget(btn_quitter)
+        # =====================
+
     def enregistrer(self):
         nom = self.nom_input.text().strip()
-
-        # Vérification du nom
         if not nom:
             QMessageBox.warning(self, "Erreur", "Le nom est obligatoire.")
             return
 
-        # Conversion NPK
         try:
-            n = self.str_to_float(self.n_input.text(), max_value=100.0)
-            p = self.str_to_float(self.p_input.text(), max_value=100.0)
-            k = self.str_to_float(self.k_input.text(), max_value=100.0)
-        except ValueError:
-            QMessageBox.warning(self, "Erreur", "Les valeurs de N, P et K doivent être numériques.")
-            return
-
-        # Vérification individuelle NPK
-        if not (0 <= n <= 100):
-            QMessageBox.warning(self, "Erreur", "N doit être entre 0 et 100.")
-            return
-        if not (0 <= p <= 100):
-            QMessageBox.warning(self, "Erreur", "P doit être entre 0 et 100.")
-            return
-        if not (0 <= k <= 100):
-            QMessageBox.warning(self, "Erreur", "K doit être entre 0 et 100.")
-            return
-
-        # Conversion conditionnement
-        try:
+            n = round(float(self.n_input.text().replace(",", ".")), 1)
+            p = round(float(self.p_input.text().replace(",", ".")), 1)
+            k = round(float(self.k_input.text().replace(",", ".")), 1)
             condi = int(float(self.condi_input.text().replace(",", ".")))
-            if not (0 <= condi <= 100000):
-                raise ValueError
+            prix = round(float(self.prix_input.text().replace(",", ".")), 2)
         except ValueError:
-            QMessageBox.warning(self, "Erreur", "Le conditionnement doit être un entier entre 0 et 100000.")
+            QMessageBox.warning(self, "Erreur", "Tous les champs doivent être des nombres valides.")
             return
 
-        # Conversion prix
-        try:
-            prix = self.str_to_float(self.prix_input.text(), max_value=10000.0)
-            if not (0.0 <= prix <= 10000.0):
-                raise ValueError
-        except ValueError:
-            QMessageBox.warning(self, "Erreur", "Le prix doit être un nombre entre 0 et 10000.")
-            return
-
-        # Vérification doublon
+        # lecture du fichier
         fertilisants = []
         if FERT_FILE.exists():
             with open(FERT_FILE, "r", encoding="utf-8") as f:
                 fertilisants = json.load(f)
 
-        for f in fertilisants:
-            if f["nom"].lower() == nom.lower():
-                QMessageBox.warning(self, "Erreur", "Ce fertilisant existe déjà.")
+        # si on modifie, demander confirmation
+        if self.editing:
+            reply = QMessageBox.question(
+                self,
+                "Confirmation",
+                f"Voulez-vous modifier le fertilisant « {self.editing['nom']} » ?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
                 return
+            # remplacer l'ancien fertilisant
+            fertilisants = [f for f in fertilisants if f != self.editing]
 
-        # Ajout dans le fichier
+        # Vérification doublon pour l'ajout
+        else:
+            for f in fertilisants:
+                if f["nom"].lower() == nom.lower():
+                    QMessageBox.warning(self, "Erreur", "Ce fertilisant existe déjà.")
+                    return
+
+        # ajouter/modifier
         fertilisants.append({
             "nom": nom,
-            "N": round(n, 1),
-            "P": round(p, 1),
-            "K": round(k, 1),
+            "N": n,
+            "P": p,
+            "K": k,
             "conditionnement": condi,
             "unite": self.liste.currentText(),
-            "prix": round(prix, 2),
+            "prix": prix
         })
 
         with open(FERT_FILE, "w", encoding="utf-8") as f:
@@ -151,8 +145,6 @@ class AjouterFertilisantWindow(QWidget):
 
         self.fertilisant_ajoute.emit()
         self.close()
-
-
 
     def str_to_float(self, text, max_value=10000.0):
         try:
@@ -189,7 +181,12 @@ class AjouterFertilisantWindow(QWidget):
 
         return result
 
-    
+    # Fermeture
+    def quitter(self):
+        #ferme la fenetre
+        self.close()
+    # =====================
+
 
         
         
