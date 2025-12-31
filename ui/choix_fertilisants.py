@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 from paths import FERT_FILE, CULTURE_FILE, TOTAL_LABEL
+import math
 
 if getattr(sys, 'frozen', False):
     # Exécutable PyInstaller
@@ -10,7 +11,6 @@ else:
     BASE_DIR = Path(__file__).parent
 
 import json
-# from pathlib import Path
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -72,8 +72,18 @@ class ChoixFertilisants(QWidget):
         self.surface_label = QLabel("Doses pour la surface réelle de la culture")
         self.layout.addWidget(self.surface_label)
 
-        self.table_surface = QTableWidget(0, 2)  # 2 colonnes seulement
-        self.table_surface.setHorizontalHeaderLabels(["Fertilisant", "Dose (kg)"])
+        self.table_surface = QTableWidget(0, 7)  # 7 colonnes
+        self.table_surface.setHorizontalHeaderLabels(
+            [
+                "Fertilisant",
+                "Dose (kg)",
+                "Condit unitaire",
+                "Prix unitaire HT",
+                "Quantité",
+                "Prix HT",
+                "Prix TTC"
+            ]
+        )
         self.layout.addWidget(self.table_surface)
 
         # ======================
@@ -209,7 +219,7 @@ class ChoixFertilisants(QWidget):
         # selectionner automatiquement le fertiliant a jouter dans la combo
         index = self.combo.findData(fert)
         if index != -1:
-            self.combo.setCurrentIndex(Index)
+            self.combo.setCurrentIndex(index)
         else:
             self.combo.setCurrentIndex(0) # mettre au premier de la liste
 
@@ -387,37 +397,56 @@ class ChoixFertilisants(QWidget):
 
 
     def calculer_doses_surface(self):
+        self.table_surface.setRowCount(0)  # vider le tableau
+
         culture = self.cultures[self.culture_nom]
         surface_m2 = culture.get("surface", 10000)  # par défaut 1 ha
-
-        self.surface_label.setText(f"Doses pour la surface réelle de la culture ({surface_m2} m²)")
-
-        # Préparer le tableau surface
-        self.table_surface.setRowCount(0)
-        self.table_surface.setColumnCount(2)
-        self.table_surface.setHorizontalHeaderLabels(["Fertilisant", "Dose (kg)"])
+        self.surface_label.setText(f"Doses pour la surface réelle ({surface_m2} m²)")
 
         for row in range(self.table.rowCount()):
             item_nom = self.table.item(row, 0)
             item_dose = self.table.item(row, 4)
-
             if item_nom is None or item_dose is None:
-                continue  # ignorer les lignes non initialisées
+                continue
             if item_nom.text() == TOTAL_LABEL:
                 continue
 
             nom = item_nom.text()
-
             try:
                 dose_ha = float(item_dose.text())
             except ValueError:
-                dose_ha = 0.0  # au cas où le texte n'est pas un nombre
+                dose_ha = 0.0
 
+            # dose pour la surface réelle
             dose_surface = dose_ha / 10000 * surface_m2
 
+            # retrouver le fertilisant correspondant dans la base pour conditionnement et prix
+            fert = next((f for f in self.fert_base if f["nom"] == nom), None)
+            if fert is None:
+                condi = 1.0
+                prix_unit = 0.0
+            else:
+                condi = fert.get("conditionnement", 1.0)          # conditionnement unitaire (kg ou L)
+                condi_unite = f'{fert.get("conditionnement", "")} {fert.get("unite", "")}'
+
+                prix_unit = fert.get("prix", 0.0)    # prix d’un sac
+                unite = fert.get("unite") #
+
+            # calcul de la quantité (nombre de sacs) et prix total
+            quantite = max(1, math.ceil(dose_surface / condi))   # au moins 1 sac
+            prix_HT = quantite * prix_unit
+            prix_TTC = prix_HT * 1.20
+
+            # remplir le tableau
             row_surf = self.table_surface.rowCount()
             self.table_surface.insertRow(row_surf)
             self.table_surface.setItem(row_surf, 0, QTableWidgetItem(nom))
             self.table_surface.setItem(row_surf, 1, QTableWidgetItem(f"{dose_surface:.1f}"))
+            self.table_surface.setItem(row_surf, 2, QTableWidgetItem(str(condi_unite)))
+            self.table_surface.setItem(row_surf, 3, QTableWidgetItem(f"{prix_unit:.2f}"))
+            self.table_surface.setItem(row_surf, 4, QTableWidgetItem(str(quantite)))
+            self.table_surface.setItem(row_surf, 5, QTableWidgetItem(f"{prix_HT:.2f}"))
+            self.table_surface.setItem(row_surf, 6, QTableWidgetItem(f"{prix_TTC:.2f}"))
+
 
         self.table_surface.resizeColumnsToContents()
