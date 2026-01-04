@@ -14,16 +14,15 @@ class ChoixModeCalcul(QDialog):
 
         layout.addWidget(QLabel("Choisir un mode de calcul :"))
 
+        self.radio_auto = QRadioButton("Auto (Coût le plus minime tout en )")
         self.radio_strict = QRadioButton("Strict (Uniquement fertilisant ±5%)")
-        self.radio_eco = QRadioButton("Éco (Coût minimal)")
-        self.radio_auto = QRadioButton("Auto")
 
 
 
-        self.radio_strict.setChecked(True)
+        self.radio_auto.setChecked(True)
 
-        layout.addWidget(self.radio_strict)
         layout.addWidget(self.radio_auto)
+        layout.addWidget(self.radio_strict)
 
         btns = QHBoxLayout()
 
@@ -44,3 +43,5 @@ class ChoixModeCalcul(QDialog):
         else:
             self.mode = "auto"
         self.accept()
+    
+    

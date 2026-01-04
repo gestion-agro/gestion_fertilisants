@@ -297,6 +297,9 @@ class ChoixFertilisants(QWidget):
         self.table.setSizeAdjustPolicy(QTableWidget.AdjustToContents)
         self.table_surface.setSizeAdjustPolicy(QTableWidget.AdjustToContents)
         self.adjustSize()
+
+        if mode != "strict":
+            self.suppr_ferti_dose_zero()
     # ======================
 
     def mettre_a_jour_total(self):
@@ -385,34 +388,35 @@ class ChoixFertilisants(QWidget):
         for row in range(self.table_surface.rowCount()):
             item = self.table_surface.item(row, 0)
             if item and item.data(Qt.UserRole) == TOTAL_LABEL:
-                rows_to_remove.appends(row)
+                rows_to_remove.append(row)
+
         for row in reversed(rows_to_remove):
             self.table_surface.removeRow(row)
 
-            # Ajouter la ligne TOTAL
-            row_total = self.table_surface.rowCount()
-            self.table_surface.insertRow(row_total)
+        # Ajouter la ligne TOTAL
+        row_total = self.table_surface.rowCount()
+        self.table_surface.insertRow(row_total)
 
-            # Colonne 0 : label TOTAL
-            total_item = QTableWidgetItem(TOTAL_LABEL)
-            total_item.setFlags(Qt.ItemIsEnabled)
-            total_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.table_surface.setItem(row_total, 0, total_item)
+        # Colonne 0 : label TOTAL
+        total_item = QTableWidgetItem(TOTAL_LABEL)
+        total_item.setFlags(Qt.ItemIsEnabled)
+        total_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.table_surface.setItem(row_total, 0, total_item)
 
-            # Colonnes 1 à 5 : vides et non éditables
-            for col in range(1, 5):
-                item = QTableWidgetItem("")
-                item.setFlags(Qt.ItemIsEnabled)
-                self.table_surface.setItem(row_total, col, total_item)
+        # Colonnes 1 à 5 : vides et non éditables
+        for col in range(1, 5):
+            item = QTableWidgetItem("")
+            item.setFlags(Qt.ItemIsEnabled)
+            self.table_surface.setItem(row_total, col, item)
 
-            # Colonnes 5 et 6 : Totaux
-            item_HT = QTableWidgetItem(f"{total_HT:.2f}")
-            item_HT.setFlags(Qt.ItemIsEnabled)
-            self.table_surface.setItem(row_total, 5, item_HT)
+        # Colonnes 5 et 6 : Totaux
+        item_HT = QTableWidgetItem(f"{total_HT:.2f}")
+        item_HT.setFlags(Qt.ItemIsEnabled)
+        self.table_surface.setItem(row_total, 5, item_HT)
 
-            item_TTC = QTableWidgetItem(f"{total_TTC:.2f}")
-            item_TTC.setFlags(Qt.ItemIsEnabled)
-            self.table_surface.setItem(row_total, 6, item_TTC)
+        item_TTC = QTableWidgetItem(f"{total_TTC:.2f}")
+        item_TTC.setFlags(Qt.ItemIsEnabled)
+        self.table_surface.setItem(row_total, 6, item_TTC)
 
         self.table_surface.resizeColumnsToContents()                  
     # ==========================
@@ -634,3 +638,48 @@ class ChoixFertilisants(QWidget):
             return 0
         return prix / condi
     # ======================
+
+    # Supprimer des tableau les fertiliant non utilisé avec le calcul auto
+    def suppr_ferti_dose_zero(self):
+        """
+        Supprime du tableau principal ey du tableau surface
+        les fertilisant dont la doses calculé est nulle.
+        Ne touche pas à la liste déroulante.
+        """
+        # Tableau principal
+        noms_a_supprimer = []
+        for row in reversed(range(self.table.rowCount())):
+            item_nom = self.table.item(row, 0)
+            item_dose = self.table.item(row, 4)
+            if item_nom is None or item_dose is None:
+                continue
+            if item_nom.text() == TOTAL_LABEL:
+                continue
+            try:
+                dose = float(item_dose.text())
+            except ValueError:
+                dose = 0
+            if dose <= 0:
+                self.table.removeRow(row)
+        # ======================
+
+        # Tableau surface
+        for row in reversed(range(self.table_surface.rowCount())):
+            item_nom = self.table_surface.item(row, 0)
+            if item_nom is None:
+                continue
+            if item_nom.text() == TOTAL_LABEL:
+                continue
+            try:
+                dose_surface = float(self.table_surface.item(row, 1).text())
+            except ValueError:
+                dose_surface = 0
+            if dose_surface <= 0:
+                self.table_surface.removeRow(row)
+        # ======================
+        
+        # Recalculer la ligne TOTAL
+        self.ajouter_ligne_total_surface()
+        # ======================
+    # ======================
+
