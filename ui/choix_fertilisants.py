@@ -644,10 +644,9 @@ class ChoixFertilisants(QWidget):
         """
         Supprime du tableau principal ey du tableau surface
         les fertilisant dont la doses calculé est nulle.
-        Ne touche pas à la liste déroulante.
+        Et remet les fertiliant dans la liste déroulante
         """
         # Tableau principal
-        noms_a_supprimer = []
         for row in reversed(range(self.table.rowCount())):
             item_nom = self.table.item(row, 0)
             item_dose = self.table.item(row, 4)
@@ -660,7 +659,18 @@ class ChoixFertilisants(QWidget):
             except ValueError:
                 dose = 0
             if dose <= 0:
-                self.table.removeRow(row)
+                # Ajouter le fertilisant supprimé à la combo
+                fert_nom = item_nom.text()
+                # Vérifier si déjà présent
+                deja = [self.combo.itemText(i) for i in range(self.combo.count())]
+                if fert_nom not in deja:
+                    fert = self.get_fert_from_base(fert_nom)
+                    if fert:
+                        txt = f"{fert['nom']} (N:{fert['N']} (P:{fert['P']} (K:{fert['K']})"
+                        self.combo.addItem(txt, fert)
+                    # supprimer la ligne
+                    self.table.removeRow(row)
+        self.ajouter_ligne_total()       
         # ======================
 
         # Tableau surface
@@ -676,10 +686,12 @@ class ChoixFertilisants(QWidget):
                 dose_surface = 0
             if dose_surface <= 0:
                 self.table_surface.removeRow(row)
+        self.ajouter_ligne_total_surface()
         # ======================
         
         # Recalculer la ligne TOTAL
         self.ajouter_ligne_total_surface()
+        
         # ======================
     # ======================
 
