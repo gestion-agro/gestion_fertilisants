@@ -1,0 +1,49 @@
+from PySide6.QtWidgets import (
+    QDialog, QVBoxLayout, QLabel,
+    QRadioButton, QPushButton, QHBoxLayout
+)
+class ChoixModeCalcul(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Mode de calcul")
+        self.setFixedSize(300, 150)
+        
+        self.mode = None
+
+        layout = QVBoxLayout(self)
+
+        layout.addWidget(QLabel("Choisir un mode de calcul :"))
+
+        self.radio_strict = QRadioButton("Strict (Uniquement fertilisant ±5%)")
+        self.radio_eco = QRadioButton("Éco (Coût minimal)")
+        self.radio_auto = QRadioButton("Auto")
+
+
+
+        self.radio_strict.setChecked(True)
+
+        layout.addWidget(self.radio_eco)
+        layout.addWidget(self.radio_strict)
+        layout.addWidget(self.radio_auto)
+
+        btns = QHBoxLayout()
+
+        btn_ok = QPushButton("Valider")
+        btn_cancel = QPushButton("Annuler")
+
+        btn_ok.clicked.connect(self.valider)
+        btn_cancel.clicked.connect(self.reject)
+
+        btns.addWidget(btn_ok)
+        btns.addWidget(btn_cancel)
+
+        layout.addLayout(btns)
+
+    def valider(self):
+        if self.radio_strict.isChecked():
+            self.mode = "strict"
+        elif self.radio_eco.isChecked():
+            self.mode = "eco"
+        else:
+            self.mode = "auto"
+        self.accept()

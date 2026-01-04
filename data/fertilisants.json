@@ -9,76 +9,49 @@
     "prix" : 19.33
   },
   {
-    "nom": "VIO + SK10",
-    "N": 9,
-    "P": 5,
-    "K": 0,
-    "conditionnement" : 10,
-    "unite": "kg",
-    "prix" : 10.99
-  },
-  {
-    "nom": "Biovie 10",
+    "nom": "Biovie 10-1-1",
     "N": 10,
     "P": 1,
     "K": 1,
     "conditionnement" : 25,
     "unite": "kg",
-    "prix" : 39.75
+    "prix" : 36.14
   },
   {
-    "nom": "Farine pat + plume 10-3-1",
-    "N": 10,
-    "P": 3,
-    "K": 1,
-    "conditionnement" : 10,
-    "unite": "kg",
-    "prix" : 10.99
-  },
-  {
-    "nom": "Kerazote evo 10-5-5",
-    "N": 10,
-    "P": 5,
-    "K": 5,
-    "conditionnement" : 10,
-    "unite": "kg",
-    "prix" : 10.99
-  },
-  {
-    "nom": "Nitrate ammo. 34-8",
+    "nom": "Nitrate d'Ammonium",
     "N": 34,
-    "P": 8,
-    "K": 0,
-    "conditionnement" : 10,
-    "unite": "kg",
-    "prix" : 10.99
-  },
-  {
-    "nom": "Nitrate potasse soluble 13",
-    "N": 0,
     "P": 0,
-    "K": 13,
-    "conditionnement" : 10,
+    "K": 0,
+    "conditionnement" : 25,
     "unite": "kg",
-    "prix" : 10.99
+    "prix" : 48.99
   },
   {
-    "nom": "Nutribio 4N 3P 6K",
+    "nom": "Nitrate de Potassium GG (soluble)",
+    "N": 13.5,
+    "P": 0,
+    "K": 46.2,
+    "conditionnement" : 25,
+    "unite": "kg",
+    "prix" : 94.9
+  },
+  {
+    "nom": "Multiverdo TM 13-0-46",
+    "N": 13,
+    "P": 0,
+    "K": 46,
+    "conditionnement" : 25,
+    "unite": "kg",
+    "prix" : 65
+  },
+  {
+    "nom": "Nutribio Fleurs 4-3-6+OSYR",
     "N": 4,
     "P": 3,
     "K": 6,
-    "conditionnement" : 10,
-    "unite": "kg",
-    "prix" : 10.99
-  },
-  {
-    "nom": "nutrisoil phosphore+",
-    "N": 0,
-    "P": 15,
-    "K": 0,
-    "conditionnement" : 10,
-    "unite": "kg",
-    "prix" : 10.99
+    "conditionnement" : 5,
+    "unite": "L",
+    "prix" : 57.05
   },
   {
     "nom": "Patenkali",
@@ -87,69 +60,42 @@
     "K": 30,
     "conditionnement" : 25,
     "unite": "kg",
-    "prix" : 58.20
+    "prix" : 35
   },
   {
-    "nom": "PEKACID 00-60-20",
-    "N": 0,
-    "P": 60,
-    "K": 20,
-    "conditionnement" : 10,
-    "unite": "kg",
-    "prix" : 10.99
-  },
-  {
-    "nom": "PHA bio 6-3-15",
+    "nom": "Guanito 6-3-15",
     "N": 6,
     "P": 3,
     "K": 15,
-    "conditionnement" : 10,
-    "unite": "kg",
-    "prix" : 10.99
-  },
-  {
-    "nom": "PHA biovi 10-1-1",
-    "N": 10,
-    "P": 1,
-    "K": 1,
     "conditionnement" : 25,
     "unite": "kg",
-    "prix" : 39.75
+    "prix" : 18.75
   },
   {
-    "nom": "Siforga 5-3-8 BIO gold",
+    "nom": "Siforga Gold 5-3-8",
     "N": 5,
     "P": 3,
     "K": 8,
-    "conditionnement" : 10,
+    "conditionnement" : 25,
     "unite": "kg",
-    "prix" : 10.99
-  },
-  {
-    "nom": "Solabiol",
-    "N": 4,
-    "P": 3,
-    "K": 2,
-    "conditionnement" : 10,
-    "unite": "kg",
-    "prix" : 10.99
+    "prix" : 40
   },
   {
     "nom": "Solesia F2 8-5-6",
     "N": 8,
     "P": 5,
     "K": 6,
-    "conditionnement" : 10,
+    "conditionnement" : 25,
     "unite": "kg",
-    "prix" : 10.99
+    "prix" : 39.75
   },
   {
-    "nom": "SOLINURE 6-12-39",
-    "N": 6,
-    "P": 12,
-    "K": 39,
-    "conditionnement" : 10,
+    "nom": "Solesia F3 5-5-8",
+    "N": 5,
+    "P": 5,
+    "K": 8,
+    "conditionnement" : 25,
     "unite": "kg",
-    "prix" : 10.99
+    "prix" : 38.25
   }
 ]

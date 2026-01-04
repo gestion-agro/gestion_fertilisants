@@ -90,7 +90,7 @@ class ChoixFertilisants(QWidget):
         # Bouton calcul
         # ======================
         btn_calcul = QPushButton("Calculer les doses")
-        btn_calcul.clicked.connect(self.calcul_dose)
+        btn_calcul.clicked.connect(self.ouvrir_dialog_Calcul)
         self.layout.addWidget(btn_calcul)
 
         # ======================
@@ -116,7 +116,6 @@ class ChoixFertilisants(QWidget):
         self.combo.activated.connect(self.on_combo_change)
 
         self.calculer_doses_surface()
-
 
     # ======================
     # Chargements
@@ -274,15 +273,26 @@ class ChoixFertilisants(QWidget):
             json.dump(self.cultures, f, indent=2, ensure_ascii=False)
         self.close()
 
+    # Choix mode de calcul
+    def ouvrir_dialog_Calcul(self):
+        from ui.dialog_mode_calcul import ChoixModeCalcul
+        dialog = ChoixModeCalcul(self)
+        if dialog.exec():
+            mode = dialog.mode
+            self.calcul_dose(mode)
+    # ======================
+
+
     # ======================
     # Calcul des doses
     # ======================
-    def calcul_dose(self):
-        self.optimiser_doses()
+    def calcul_dose(self, mode):
+        self.optimiser_doses(mode)
         self.calculer_doses_surface()
         self.table.setSizeAdjustPolicy(QTableWidget.AdjustToContents)
         self.table_surface.setSizeAdjustPolicy(QTableWidget.AdjustToContents)
         self.adjustSize()
+
 
     def mettre_a_jour_total(self):
         total_n = 0.0
@@ -344,8 +354,10 @@ class ChoixFertilisants(QWidget):
 
         # Colonne 8 : vide
         self.table.setItem(row, 8, QTableWidgetItem(""))
+    # ==========================
+    
 
-    def optimiser_doses(self):
+    def optimiser_doses(self, mode):
         culture = self.cultures[self.culture_nom]
         Nb, Pb, Kb = culture["N"], culture["P"], culture["K"]
 
@@ -353,26 +365,70 @@ class ChoixFertilisants(QWidget):
         for row in range(self.table.rowCount()):
             if self.table.item(row, 0).text() == "TOTAL":
                 continue
+
+            nom = self.table.item(row, 0).text()
+            fert_base = self.get_fert_from_base(nom)
+
+            prix = 0.0
+            if fert_base:
+                prix = float(fert_base.get("prix", 0.0))
+
             fert = {
                 "row": row,
                 "N": float(self.table.item(row, 1).text()),
                 "P": float(self.table.item(row, 2).text()),
                 "K": float(self.table.item(row, 3).text()),
+                "prix": prix,
             }
             fertilisants.append(fert)
 
-        if not fertilisants:
-            return
-
-        # ==========================
         # fonction objectif à minimiser
         # ==========================
         def objectif(doses):
+            def prix_par_unite(fert):
+                condi = float(fert.get("conditionnement", 1))
+                prix = float(fert.get("prix", 0))
+                if condi <= 0:
+                    return 0
+                return prix / condi
+
             Na = sum(d * f["N"] / 100 for d, f in zip(doses, fertilisants))
             Pa = sum(d * f["P"] / 100 for d, f in zip(doses, fertilisants))
             Ka = sum(d * f["K"] / 100 for d, f in zip(doses, fertilisants))
-            return (Nb - Na)**2 + (Pb - Pa)**2 + (Kb - Ka)**2
 
+            # erreur agronomique 
+            erreur_npk = (Nb - Na)**2 + (Pb - Pa)**2 + (Kb - Ka)**2
+
+            # erreur max
+            erreur_max = Nb**2 + Pb**2 + Kb**2
+
+            # coût total €/ha
+            cout = sum(d * f["prix"] for d, f in zip(doses, fertilisants))
+
+            # coût max 
+            prix_max_unite = max(prix_par_unite(f) for f in self.fert_base)
+            dose_totale_max = max(Nb, Pb, Kb) * 1.05
+            cout_max = dose_totale_max + prix_max_unite
+            cout_max = max(cout_max, 1e-6)
+
+            if mode == "strict": # priorité agronomique
+                ALPHA = 1
+                BETA = 0
+                erreur_normaliser = erreur_npk
+                cout_normaliser = cout 
+            elif mode == "eco": # priorité économique
+                ALPHA = 0.01
+                BETA = 1
+                erreur_normaliser = erreur_npk
+                cout_normaliser = cout
+            else: # Auto 
+                ALPHA = 0.6
+                BETA = 0.4
+                erreur_normaliser = erreur_npk / erreur_max
+                cout_normaliser = cout / cout_max                
+
+            return ALPHA * erreur_normaliser + BETA * cout_normaliser
+            
         # contraintes : doses >= 0
         n = len(fertilisants)
         bounds = [(0, None)] * n  # aucune dose négative
@@ -394,6 +450,8 @@ class ChoixFertilisants(QWidget):
                 self.table.setItem(row, 7, QTableWidgetItem(f"{dose*f['K']/100:.2f}"))
 
         self.mettre_a_jour_total()
+    # ==========================
+
 
 
     def calculer_doses_surface(self):
@@ -422,15 +480,18 @@ class ChoixFertilisants(QWidget):
 
             # retrouver le fertilisant correspondant dans la base pour conditionnement et prix
             fert = next((f for f in self.fert_base if f["nom"] == nom), None)
-            if fert is None:
-                condi = 1.0
-                prix_unit = 0.0
-            else:
-                condi = fert.get("conditionnement", 1.0)          # conditionnement unitaire (kg ou L)
-                condi_unite = f'{fert.get("conditionnement", "")} {fert.get("unite", "")}'
 
-                prix_unit = fert.get("prix", 0.0)    # prix d’un sac
-                unite = fert.get("unite") #
+            # valeur par défault
+            condi = 1.0
+            unite = ""
+            condi_unite = "_"
+            prix_unit = 0.0
+
+            if fert:
+                condi = fert.get("conditionnement", 1.0)          # conditionnement unitaire (kg ou L)
+                unite = fert.get("unite", "")
+                condi_unite = f"{condi} {unite}"
+                prix_unit = float(fert.get("prix", 0.0))    # prix d’un sac
 
             # calcul de la quantité (nombre de sacs) et prix total
             quantite = max(1, math.ceil(dose_surface / condi))   # au moins 1 sac
@@ -450,3 +511,13 @@ class ChoixFertilisants(QWidget):
 
 
         self.table_surface.resizeColumnsToContents()
+
+    def get_fert_from_base(self, nom):
+        return next((f for f in self.fert_base if f["nom"] == nom), None)
+    
+    def prix_par_unite(fert):
+        condi = float(fert.get("conditionnement", 1))
+        prix = float(fert.get("prix", 0))
+        if condi <= 0:
+            return 0
+        return prix / condi
