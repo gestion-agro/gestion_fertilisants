@@ -183,8 +183,37 @@ class ChoixFertilisants(QWidget):
 
         # Ajouter à la combo
         for fert in ferts_trie:
-            txt = f"{fert['nom']} (N:{fert['N']} P:{fert['P']} K:{fert['K']})"
+            txt = f"{fert['nom']} ({fert['N']}-{fert['P']}-{fert['K']})"
             self.combo.addItem(txt, fert)
+    # ======================
+
+    # Recharger la combo apres suppresion des fertilisant dans les tableau par mode auto
+    def recharger_combo_auto(self):
+        """
+        Recharger la combo après suppression des fertiliants dose=0.
+        la combo contient tous les fertiliant de la base qui ne sont pas déjà 
+        présent dans le tableau principal
+        """
+        # Vider la combo
+        self.combo.clear()
+
+        # Récupère les noms délà utilisés dans le tableau principal
+        noms_utilises = set()
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item and item.text() != TOTAL_LABEL:
+                noms_utilises.add(item.text())
+        # ======================
+
+        # Ajouter les fertilisants non utilisées dans la combo
+        ferts_disponibles = [f for f in self.fert_base if f["nom"] not in noms_utilises]
+        ferts_disponibles.sort(key=lambda f: f["nom"].lower())
+
+        for fert in ferts_disponibles:
+            txt = f"{fert['nom']} ({fert['N']}-{fert['P']}-{fert['K']})"
+            self.combo.addItem(txt, fert)
+        # ======================
+
     # ======================
 
     def on_combo_change(self):
@@ -300,6 +329,7 @@ class ChoixFertilisants(QWidget):
 
         if mode != "strict":
             self.suppr_ferti_dose_zero()
+            self.recharger_combo_auto()
     # ======================
 
     def mettre_a_jour_total(self):
@@ -646,6 +676,8 @@ class ChoixFertilisants(QWidget):
         les fertilisant dont la doses calculé est nulle.
         Et remet les fertiliant dans la liste déroulante
         """
+
+        fertilisants_suppr = []
         # Tableau principal
         for row in reversed(range(self.table.rowCount())):
             item_nom = self.table.item(row, 0)
@@ -661,16 +693,10 @@ class ChoixFertilisants(QWidget):
             if dose <= 0:
                 # Ajouter le fertilisant supprimé à la combo
                 fert_nom = item_nom.text()
-                # Vérifier si déjà présent
-                deja = [self.combo.itemText(i) for i in range(self.combo.count())]
-                if fert_nom not in deja:
-                    fert = self.get_fert_from_base(fert_nom)
-                    if fert:
-                        txt = f"{fert['nom']} (N:{fert['N']} (P:{fert['P']} (K:{fert['K']})"
-                        self.combo.addItem(txt, fert)
-                    # supprimer la ligne
-                    self.table.removeRow(row)
-        self.ajouter_ligne_total()       
+                fert = self.get_fert_from_base(fert_nom)
+                if fert:
+                    fertilisants_suppr.append(fert)
+                self.table.removeRow(row)      
         # ======================
 
         # Tableau surface
@@ -689,9 +715,17 @@ class ChoixFertilisants(QWidget):
         self.ajouter_ligne_total_surface()
         # ======================
         
-        # Recalculer la ligne TOTAL
+        # Recalculer des lignes TOTAL
+        self.ajouter_ligne_total()
         self.ajouter_ligne_total_surface()
-        
+        # ======================
+
+        # Remettre les fertilisant supprimés dans la cobo
+        for fert in fertilisants_suppr:
+            deja = [self.combo.itemData(i) for i in range(self.combo.count())]
+            if fert not in deja:
+                txt = f"{fert['nom']} ({fert['N']}-{fert['P']}-{fert['K']})"
+                self.combo.addItem(txt, fert)
         # ======================
     # ======================
 
