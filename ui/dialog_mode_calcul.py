@@ -22,7 +22,6 @@ class ChoixModeCalcul(QDialog):
 
         self.radio_strict.setChecked(True)
 
-        layout.addWidget(self.radio_eco)
         layout.addWidget(self.radio_strict)
         layout.addWidget(self.radio_auto)
 
@@ -42,8 +41,6 @@ class ChoixModeCalcul(QDialog):
     def valider(self):
         if self.radio_strict.isChecked():
             self.mode = "strict"
-        elif self.radio_eco.isChecked():
-            self.mode = "eco"
         else:
             self.mode = "auto"
         self.accept()
