@@ -719,13 +719,5 @@ class ChoixFertilisants(QWidget):
         self.ajouter_ligne_total()
         self.ajouter_ligne_total_surface()
         # ======================
-
-        # Remettre les fertilisant supprimés dans la cobo
-        for fert in fertilisants_suppr:
-            deja = [self.combo.itemData(i) for i in range(self.combo.count())]
-            if fert not in deja:
-                txt = f"{fert['nom']} ({fert['N']}-{fert['P']}-{fert['K']})"
-                self.combo.addItem(txt, fert)
-        # ======================
     # ======================
 
