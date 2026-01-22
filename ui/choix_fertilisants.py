@@ -156,6 +156,22 @@ class ChoixFertilisants(QWidget):
                 data = json.load(f)
                 if not isinstance(data, list):
                     return []
+                
+                # normalisation
+                for fert in data:
+                    fert.setdefault("stock", 0)
+                    fert.setdefault("unite", 0)
+                    fert.setdefault("conditionnement", 1)
+                    fert.setdefault("prix", 0)
+
+                
+                # normalisation
+                for fert in data:
+                    fert.setdefault("stock", 0)
+                    fert.setdefault("unite", 0)
+                    fert.setdefault("conditionnement", 1)
+                    fert.setdefault("prix", 0)
+
                 return data
         except json.JSONDecodeError:
             # fichier vide ou JSON invalide → on retourne une liste vide
