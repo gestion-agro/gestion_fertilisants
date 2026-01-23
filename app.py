@@ -1,17 +1,31 @@
 import sys
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
-from ui.besoins_form import BesoinsForm
 import sys
 
 from paths import ensure_user_data, FERT_FILE, CULTURE_FILE, ICON_FILE
+from views.main_window import MainWindow
 
-ensure_user_data()
+def main():
+    ensure_user_data()
+    
+    app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(str(ICON_FILE)))
 
-app = QApplication(sys.argv)
 
-app.setWindowIcon(QIcon(str(ICON_FILE)))
+    window = MainWindow()
+    window.show()
 
-window = BesoinsForm()
-window.show()
-sys.exit(app.exec())
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+
+
+

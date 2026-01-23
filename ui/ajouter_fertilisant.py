@@ -120,8 +120,7 @@ class AjouterFertilisantWindow(QWidget):
             if reply != QMessageBox.Yes:
                 return
             # remplacer l'ancien fertilisant
-            fertilisants = [f for f in fertilisants if f != self.editing]
-
+            fertilisants = [f for f in fertilisants if f['nom'].lower() != self.editing['nom'].lower()]
         # Vérification doublon pour l'ajout
         else:
             for f in fertilisants:
@@ -145,41 +144,6 @@ class AjouterFertilisantWindow(QWidget):
 
         self.fertilisant_ajoute.emit()
         self.close()
-
-    def str_to_float(self, text, max_value=10000.0):
-        try:
-            text = text.replace(",", ".")
-            value = float(text)
-            value = max(0.0, min(max_value, value))
-            return value
-        except ValueError:
-            return 0.0
-
-
-    # Format input
-    def get_formatted_values(self):
-        result = {}
-
-        # NPK : 0 à 100, 1 décimale
-        for elem, line_edit in zip(['N', 'P', 'K'], [self.n_input, self.p_input, self.k_input]):
-            value = str_to_float(line_edit.text(), max_value=100.0)
-            value = round(value, 1)
-            result[elem] = value
-
-        # Conditionnement : entier 0 à 100000
-        try:
-            condi_value = int(float(self.condi_input.text().replace(",", ".")))
-            condi_value = max(0, min(100000, condi_value))
-        except ValueError:
-            condi_value = 0
-        result['Conditionnement'] = condi_value
-
-        # Prix : 0 à 10000, 2 décimales
-        prix_value = str_to_float(self.prix_input.text(), max_value=10000.0)
-        prix_value = round(prix_value, 2)
-        result['Prix'] = prix_value
-
-        return result
 
     # Fermeture
     def quitter(self):

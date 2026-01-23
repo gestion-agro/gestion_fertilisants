@@ -1,76 +1,20 @@
 {
-  "pdt": {
+  "Tomates": {
+    "N": 200.0,
+    "P": 100.0,
+    "K": 300.0,
+    "surface": 10000.0
+  },
+  "Carotte": {
+    "N": 80.0,
+    "P": 65.0,
+    "K": 180.0,
+    "surface": 10000.0
+  },
+  "PdT": {
     "N": 100.0,
-    "P": 30.0,
+    "P": 35.0,
     "K": 230.0,
-    "surface": 100.0,
-    "fertilisants": [
-      {
-        "K": 5,
-        "N": 10,
-        "P": 5,
-        "nom": "Kerazote evo 10-5-5"
-      },
-      {
-        "K": 0,
-        "N": 34,
-        "P": 8,
-        "nom": "Nitrate ammo. 34-8"
-      },
-      {
-        "K": 20,
-        "N": 0,
-        "P": 60,
-        "nom": "PEKACID 00-60-20"
-      },
-      {
-        "K": 5,
-        "N": 4,
-        "P": 3,
-        "nom": "Actimus"
-      },
-      {
-        "K": 1,
-        "N": 10,
-        "P": 3,
-        "nom": "Farine pat + plume 10-3-1"
-      },
-      {
-        "K": 1,
-        "N": 10,
-        "P": 1,
-        "nom": "Biovie 10"
-      },
-      {
-        "K": 13,
-        "N": 0,
-        "P": 0,
-        "nom": "Nitrate potasse soluble 13"
-      },
-      {
-        "K": 6,
-        "N": 4,
-        "P": 3,
-        "nom": "Nutribio 4N 3P 6K"
-      },
-      {
-        "K": 0,
-        "N": 0,
-        "P": 15,
-        "nom": "nutrisoil phosphore+"
-      },
-      {
-        "K": 30,
-        "N": 0,
-        "P": 0,
-        "nom": "Patenkali"
-      },
-      {
-        "K": 15,
-        "N": 6,
-        "P": 3,
-        "nom": "PHA bio 6-3-15"
-      }
-    ]
+    "surface": 10000.0
   }
 }
