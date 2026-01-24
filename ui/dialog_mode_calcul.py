@@ -19,7 +19,7 @@ class ChoixModeCalcul(QDialog):
 
 
 
-        self.radio_auto.setChecked(True)
+        self.radio_strict.setChecked(True)
 
         layout.addWidget(self.radio_auto)
         layout.addWidget(self.radio_strict)
