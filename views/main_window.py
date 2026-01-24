@@ -8,7 +8,6 @@ from PySide6.QtCore import Qt
 
 from PySide6.QtGui import QFont, QBrush, QColor
 
-import cvxpy as cp
 import numpy as np
 
 import pulp
@@ -22,8 +21,6 @@ import numpy as np
 from ui.ajouter_fertilisant import AjouterFertilisantWindow
 from ui.ajouter_culture import AjouterCultureWindow
 from ui.dialog_mode_calcul import ChoixModeCalcul
-
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
