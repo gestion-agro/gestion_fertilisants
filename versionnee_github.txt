@@ -1,0 +1,7 @@
+git status // voir les fichiers 
+git add . ajouter tout les fichiers mdifié
+git status // voir les fichiers ajouter / modifié / supprimé
+git commit -m "" // Ajouter le commit avec "texte"
+git push origin main // envoyer les fichiers
+git tag vx.x.x // creer le tag de version
+git push origin vx.x.x // envoyer les fichiers vers la version
