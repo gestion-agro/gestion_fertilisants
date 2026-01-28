@@ -1,16 +1,8 @@
-from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QTableWidget, QTableWidgetItem, QPushButton,
-    QLabel, QVBoxLayout, QHBoxLayout,  QSplitter, QHeaderView, QAbstractItemView,
-    QMenu, QMessageBox, QDialog,
-    QCheckBox,
-    QMenuBar, QMenu # Menu 
-)
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import *
 
-from PySide6.QtGui import (
-    QFont, QBrush, QColor,
-    QAction, QKeySequence # Menu
-)
+from PySide6.QtCore import *
+
+from PySide6.QtGui import *
 
 import numpy as np
 import math
@@ -37,15 +29,21 @@ class MainWindow(QMainWindow):
         self.culture_active = None
         self.cultures_selectionne = None
         self.table_modifiees = False
-        self.DEBUG = False
+        self.DEBUG = True
 
         self.creer_menu()
 
         # Label badge
-        self.lbl_modifie = QLabel("Modification non enregistrées")
-        self.lbl_modifie.setStyleSheet("color: red; font-weight:bold;")
+        self.lbl_modifie = QLabel("")
+
+        self.lbl_modifie.setAlignment(Qt.AlignCenter)
+        font = QFont()
+        font.setPointSize(12)
+        font.setBold(True)
+        self.lbl_modifie.setFont(font)
+
+        self.lbl_modifie.setStyleSheet("color: red;")
         self.set_doses_modifiees = False
-        self.lbl_modifie.setVisible(False) # Caché par défault
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -96,8 +94,8 @@ class MainWindow(QMainWindow):
         center_layout.addWidget(self.lbl_culture_active)
         center_layout.addWidget(self.lbl_modifie)
 
-        lbl_utiliser = QLabel("Fertilisants à utiliser")
-        center_layout.addWidget(lbl_utiliser)
+        self.lbl_utiliser = QLabel("Fertilisants à utiliser")
+        center_layout.addWidget(self.lbl_utiliser)
 
         self.table_utiliser = QTableWidget(0, 4)
         self.table_utiliser.setHorizontalHeaderLabels(["Nom", "N", "P", "K"])
@@ -133,16 +131,16 @@ class MainWindow(QMainWindow):
         self.lbl_dose_surface = QLabel("Doses pour la surface")
         center_layout.addWidget(self.lbl_dose_surface)
 
-        self.table_dose_surface = QTableWidget(0, 7)
-        self.table_dose_surface.setHorizontalHeaderLabels(
+        self.table_doses_surface = QTableWidget(0, 7)
+        self.table_doses_surface.setHorizontalHeaderLabels(
             ["Fertilisant", "Dose", "Prix (dose)", "Conditionnement", "Prix unitaire", "Quantité", "Prix HT"]
         )
-        self.table_dose_surface.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.table_dose_surface.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table_dose_surface.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.table_doses_surface.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table_doses_surface.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table_doses_surface.setSelectionMode(QAbstractItemView.SingleSelection)
 
-        self.setup_table_header(self.table_dose_surface, stretch_col=0)
-        center_layout.addWidget(self.table_dose_surface)
+        self.setup_table_header(self.table_doses_surface, stretch_col=0)
+        center_layout.addWidget(self.table_doses_surface)
 
         btn_calcul = QPushButton("Calculer les doses")
         btn_calcul.clicked.connect(self.calculer_doses)
@@ -357,7 +355,7 @@ class MainWindow(QMainWindow):
         # --------- Alignements ---------
         self.aligner_table_culture()
         self.aligner_table_doses_ha()
-        self.aligner_table_dose_surface()
+        self.aligner_table_doses_surface()
         self.aligner_table_utiliser()
         self.aligner_table_fertilisants()
 
@@ -629,6 +627,8 @@ class MainWindow(QMainWindow):
     def ajouter_fert_utiliser(self, nom):
         self.debug("=== ajouter_fert_utiliser ===")
         self.debug("Fertilisant demandé :", nom)
+        
+        fertilisant_double = True
 
         fert = next((f for f in self.fert_base if f["nom"] == nom), None)
         if not fert:
@@ -638,24 +638,31 @@ class MainWindow(QMainWindow):
         for row in range(self.table_utiliser.rowCount()):
             if self.table_utiliser.item(row, 0).text() == nom:
                 self.debug("⚠️ Fertilisant déjà présent dans table_utiliser")
+                QMessageBox.warning(self, "Fertilisant déjà présent", f"Le fertilisant : {nom} est déjà utiliser")
+                fertilisant_double = False
                 return
 
-        row = self.table_utiliser.rowCount()
-        self.table_utiliser.insertRow(row)
+        if fertilisant_double:
+            self.debug("fertilisant pas en double donc ajout")
+            row = self.table_utiliser.rowCount()
+            self.table_utiliser.insertRow(row)
 
-        self.table_utiliser.setItem(row, 0, QTableWidgetItem(fert["nom"]))
-        self.table_utiliser.setItem(row, 1, QTableWidgetItem(str(fert.get("N"))))
-        self.table_utiliser.setItem(row, 2, QTableWidgetItem(str(fert.get("P"))))
-        self.table_utiliser.setItem(row, 3, QTableWidgetItem(str(fert.get("K"))))
-        self.table_utiliser.setItem(row, 4, QTableWidgetItem("0"))
+            self.table_utiliser.setItem(row, 0, QTableWidgetItem(fert["nom"]))
+            self.table_utiliser.setItem(row, 1, QTableWidgetItem(str(fert.get("N"))))
+            self.table_utiliser.setItem(row, 2, QTableWidgetItem(str(fert.get("P"))))
+            self.table_utiliser.setItem(row, 3, QTableWidgetItem(str(fert.get("K"))))
+            self.table_utiliser.setItem(row, 4, QTableWidgetItem("0"))
 
-        self.debug(f"Fertilisant ajouté à table_utiliser ligne {row}")
+            self.debug(f"Fertilisant ajouté à table_utiliser ligne {row}")
 
-        self.aligner_table_utiliser()
-        self.debug("Alignement table_utiliser effectué")
+            self.aligner_table_utiliser()
+            self.debug("Alignement table_utiliser effectué")
+        
+            self.mark_doses_modifiees(True)
+            self.debug("Ajout de l'affichage de lbl_modifie")
 
-        self.debug("Affichage de lbl_modifie")
-        self.mark_doses_modifiees(True)
+            self.debug("Ajout fertilisant utiliser -> table_modifier = True")
+            self.table_modifiees = True
     # ----------------------
 
     # ----------------------
@@ -668,12 +675,15 @@ class MainWindow(QMainWindow):
             if self.table_utiliser.item(row, 0).text() == nom:
                 self.table_utiliser.removeRow(row)
                 self.debug(f"Fertilisant retiré de table_utiliser ligne {row}")
+        
+                self.mark_doses_modifiees(True)
+                self.debug("Ajout de l'affichage de lbl_modifie")
+
+                self.debug("Ajout fertilisant utiliser -> table_modifier = True")
+                self.table_modifiees = True
                 return
 
         self.debug("⚠️ Fertilisant non trouvé dans table_utiliser")
-
-        self.debug("Affichage de lbl_modifie")
-        self.mark_doses_modifiees(True)
     # ----------------------
 
     # Ne pas autoriser sans validations de l'utilisateur le changement de culture sans enregistrement
@@ -758,7 +768,7 @@ class MainWindow(QMainWindow):
         self.debug("Fertilisants utilisés enregistrés :", ferts_utilises)
 
         if ferts_utilises:
-            has_doses = any(f.get("dose_ha") is not None for f in ferts_utilises)
+            has_doses = any(f.get("doses_ha") is not None for f in ferts_utilises)
             
             if has_doses:
                 resultats = []
@@ -781,7 +791,7 @@ class MainWindow(QMainWindow):
                     self.debug(f"🧮 {fert['nom']} → N:{N} P:{P} K:{K}")
 
                 self.table_doses_ha.setRowCount(0)
-                self.table_dose_surface.setRowCount(0)
+                self.table_doses_surface.setRowCount(0)
 
                 self.remplir_table_doses_ha(resultats)
                 self.calculer_doses_surface(resultats, culture)
@@ -793,6 +803,8 @@ class MainWindow(QMainWindow):
                 self.mark_doses_modifiees(False)
                 
             else:
+                self.table_doses_ha.setRowCount(0)
+                self.table_doses_surface.setRowCount(0)
 
                 for fert in ferts_utilises:
                     fert_base = next((f for f in self.fert_base if f["nom"] == fert["nom"]), None)
@@ -837,7 +849,7 @@ class MainWindow(QMainWindow):
 
         self.table_utiliser.setRowCount(0)
         self.table_doses_ha.setRowCount(0)
-        self.table_dose_surface.setRowCount(0)
+        self.table_doses_surface.setRowCount(0)
 
         ferts_utilises = culture.get("fertilisants_utilises", [])
         self.debug("Fertilisants culture :", ferts_utilises)
@@ -932,7 +944,7 @@ class MainWindow(QMainWindow):
         self.debug(f"Fertilisants table_utiliser ({len(ferts)}) :", ferts)
 
         self.table_doses_ha.setRowCount(0)
-        self.table_dose_surface.setRowCount(0)
+        self.table_doses_surface.setRowCount(0)
 
         # --- Choix du mode ---
         if not ferts:
@@ -1147,7 +1159,7 @@ class MainWindow(QMainWindow):
         surface = culture.get("surface", 1)
         self.debug(f"Surface culture = {surface} m²")
 
-        self.table_dose_surface.setRowCount(0)
+        self.table_doses_surface.setRowCount(0)
         total_prix = total_dose = 0        
 
         for r in resultats:
@@ -1171,39 +1183,39 @@ class MainWindow(QMainWindow):
 
             self.debug(f"{r['nom']} → dose_surface={dose_surface:.2f} {unite}, prix_dose={prix_dose:.2f}€, quantite={quantite}, prix_ht={prix_ht:.2f}€")
 
-            row = self.table_dose_surface.rowCount()
-            self.table_dose_surface.insertRow(row)
-            self.table_dose_surface.setItem(row, 0, QTableWidgetItem(r["nom"]))
-            self.table_dose_surface.setItem(row, 1, QTableWidgetItem(f"{dose_surface:.1f} {unite}"))
-            self.table_dose_surface.setItem(row, 2, QTableWidgetItem(f"{prix_dose:.2f} €"))
-            self.table_dose_surface.setItem(row, 3, QTableWidgetItem(f"{conditionnement} {unite}"))
-            self.table_dose_surface.setItem(row, 4, QTableWidgetItem(f"{prix_unitaire:.2f} €"))
-            self.table_dose_surface.setItem(row, 5, QTableWidgetItem(str(quantite)))
-            self.table_dose_surface.setItem(row, 6, QTableWidgetItem(f"{prix_ht:.2f} €"))
+            row = self.table_doses_surface.rowCount()
+            self.table_doses_surface.insertRow(row)
+            self.table_doses_surface.setItem(row, 0, QTableWidgetItem(r["nom"]))
+            self.table_doses_surface.setItem(row, 1, QTableWidgetItem(f"{dose_surface:.1f} {unite}"))
+            self.table_doses_surface.setItem(row, 2, QTableWidgetItem(f"{prix_dose:.2f} €"))
+            self.table_doses_surface.setItem(row, 3, QTableWidgetItem(f"{conditionnement} {unite}"))
+            self.table_doses_surface.setItem(row, 4, QTableWidgetItem(f"{prix_unitaire:.2f} €"))
+            self.table_doses_surface.setItem(row, 5, QTableWidgetItem(str(quantite)))
+            self.table_doses_surface.setItem(row, 6, QTableWidgetItem(f"{prix_ht:.2f} €"))
 
         # Ligne TOTAL
-        row = self.table_dose_surface.rowCount()
-        self.table_dose_surface.insertRow(row)
+        row = self.table_doses_surface.rowCount()
+        self.table_doses_surface.insertRow(row)
         self.debug(f"Ligne TOTAL → total_dose={total_dose:.2f}€, total_prix={total_prix:.2f}€")
 
-        self.table_dose_surface.setItem(row, 0, QTableWidgetItem("TOTAL"))
-        self.table_dose_surface.setItem(row, 1, QTableWidgetItem())
-        self.table_dose_surface.setItem(row, 2, QTableWidgetItem(f"{total_dose:.2f} €"))
-        self.table_dose_surface.setItem(row, 3, QTableWidgetItem())
-        self.table_dose_surface.setItem(row, 4, QTableWidgetItem())
-        self.table_dose_surface.setItem(row, 5, QTableWidgetItem())
-        self.table_dose_surface.setItem(row, 6, QTableWidgetItem(f"{total_prix:.2f} €"))
+        self.table_doses_surface.setItem(row, 0, QTableWidgetItem("TOTAL"))
+        self.table_doses_surface.setItem(row, 1, QTableWidgetItem())
+        self.table_doses_surface.setItem(row, 2, QTableWidgetItem(f"{total_dose:.2f} €"))
+        self.table_doses_surface.setItem(row, 3, QTableWidgetItem())
+        self.table_doses_surface.setItem(row, 4, QTableWidgetItem())
+        self.table_doses_surface.setItem(row, 5, QTableWidgetItem())
+        self.table_doses_surface.setItem(row, 6, QTableWidgetItem(f"{total_prix:.2f} €"))
 
         font = QFont()
         font.setBold(True)
-        for col in range(self.table_dose_surface.columnCount()):
-            item = self.table_dose_surface.item(row, col)
+        for col in range(self.table_doses_surface.columnCount()):
+            item = self.table_doses_surface.item(row, col)
             if item:
                 item.setFont(font)
                 item.setBackground(QBrush(QColor("#e6e6e6")))
 
-        self.table_dose_surface.setRowHeight(row, 32)
-        self.aligner_table_dose_surface()
+        self.table_doses_surface.setRowHeight(row, 32)
+        self.aligner_table_doses_surface()
     # ----------------------
 
     # ----------------------
@@ -1235,8 +1247,11 @@ class MainWindow(QMainWindow):
         self.debug(f"Double-clic fertilisant '{nom_fert}' → ajout à la culture '{self.culture_active}'")
         self.ajouter_fert_utiliser(nom_fert)
         
-        self.table_modifiees = True
-        self.debug("Ajout fertilisant utiliser -> table_modifier = True")
+        # self.mark_doses_modifiees(True)
+        # self.debug("Ajout de l'affichage de lbl_modifie")
+
+        # self.debug("Ajout fertilisant utiliser -> table_modifier = True")
+        # self.table_modifiees = True
     # ----------------------
 
     # au double clique sur un fertilisant dans table_utiliser -> retirer de cette table
@@ -1251,16 +1266,19 @@ class MainWindow(QMainWindow):
         self.debug(f"Double-clic fertilisant '{nom_fert}' → suppression de la table 'utiliser'")
         self.enlever_fert_utiliser(nom_fert)
         
+        self.mark_doses_modifiees(True)
+        self.debug("Ajout de l'affichage de lbl_modifie")
+
+        self.debug("Enlever fertilisant utiliser -> table_modifier = True")
         self.table_modifiees = True
-        self.debug("Suppression fertilisant utiliser -> table_modifier = True")
     # ----------------------
 
-    # Aligne toutes les colonnes de table_dose_surface à droite sauf la colonne nom
+    # Aligne toutes les colonnes de table_doses_surface à droite sauf la colonne nom
     # ----------------------
-    def aligner_table_dose_surface(self):
-        for row in range(self.table_dose_surface.rowCount()):
-            for col in range(self.table_dose_surface.columnCount()):
-                item = self.table_dose_surface.item(row, col)
+    def aligner_table_doses_surface(self):
+        for row in range(self.table_doses_surface.rowCount()):
+            for col in range(self.table_doses_surface.columnCount()):
+                item = self.table_doses_surface.item(row, col)
                 if not item:
                     continue
 
@@ -1477,7 +1495,7 @@ class MainWindow(QMainWindow):
         self._clear_table(self.table_doses_ha)
 
         # Table dose surface
-        self._clear_table(self.table_dose_surface)
+        self._clear_table(self.table_doses_surface)
 
         QMessageBox.information(
             self,
@@ -1501,7 +1519,7 @@ class MainWindow(QMainWindow):
         self._clear_table(self.table_doses_ha)
 
         # Table dose surface
-        self._clear_table(self.table_dose_surface)
+        self._clear_table(self.table_doses_surface)
 
         QMessageBox.information(
             self,
@@ -1603,6 +1621,8 @@ class MainWindow(QMainWindow):
             with open(CULTURE_FILE, "w", encoding="utf-8") as f:
                 json.dump(self.cultures, f, indent=2, ensure_ascii=False)
 
+                QMessageBox.information(self, "Culture enregistré", "La culture à bien été enregistré")
+
                 self.debug(f" Enregistrement OK ({len(fertilisants)} fertilisants)")
 
         except Exception as e:
@@ -1610,11 +1630,85 @@ class MainWindow(QMainWindow):
         
         self.mark_doses_modifiees(False)
         self.debug("Suppression de l'affiche de lbl_modifie")
+
+        self.debug("Culture enregistrer -> table_modifier = False")
+        self.table_modifiees = False
     # ----------------------
 
     # Mettre a jour le badge de modification à chaque modifications des tableaux
     # ----------------------
     def mark_doses_modifiees(self, modifie=True):
         self.set_doses_modifiees = modifie
-        self.lbl_modifie.setVisible(modifie)
+
+        if modifie:
+            self.lbl_modifie.setText("Modification non enregistrées")
+            self.lbl_modifie.setStyleSheet("color: red;")
+        else:
+            self.lbl_modifie.setText("Modification enregistré")
+            self.lbl_modifie.setStyleSheet("color: green;")
+    # ----------------------
+
+    # Interception touche suppr
+    # ----------------------
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Delete:
+            self.debug("Touche Delete pressée")
+
+            widget = QApplication.focusWidget()
+
+            if widget is None:
+                self.debug("Pas de sélection")
+                return
+            
+            # Cultures
+            # ======================
+            if widget == self.table_cultures:
+                nom = self._nom_selectionnes(self.table_cultures)
+                if nom:
+                    self.debug("Suppression de la culture", nom)
+                    self.supprimer_culture(nom)
+                return
+            # ======================
+
+            # Fertilisant (base)
+            # ======================
+            if widget == self.table_fertilisants:
+                nom = self._nom_selectionnes(self.table_fertilisants)
+                if nom:
+                    self.debug("Suppression du fertilisant", nom)
+                    self.supprimer_fert(nom)
+                return
+            # ======================
+            
+            # Fertilisant utilisé
+            # ======================
+            if widget == self.table_utiliser:
+                nom = self._nom_selectionnes(self.table_utiliser)
+                if nom:
+                    self.debug(
+                        f"Suppression pour la cuture de",
+                        f"'{self.culture_active}' :",
+                        nom
+                    )
+                    self.enlever_fert_utiliser(nom)
+                return
+            # ======================
+
+        else:
+            super().keyPressEvent(event)
+
+
+        
+        return
+    # ----------------------
+    # 
+    # Récuperer nom premiere colone d'une lign d'un tableau
+    # ----------------------
+    def _nom_selectionnes(self, table):
+        row = table.currentRow()
+        if row < 0:
+            return None
+        
+        item = table.item(row, 0)
+        return item.text() if item else None
     # ----------------------
