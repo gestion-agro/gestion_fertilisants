@@ -196,6 +196,8 @@ class MainWindow(QMainWindow):
 
         self.cultures_selectionnee = None
 
+        self.init_raccourcis()
+
     # ----------------------
     # Charger les fertilisants
     def charger_fertilisants(self):
