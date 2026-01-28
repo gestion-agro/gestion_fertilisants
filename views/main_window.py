@@ -1712,3 +1712,16 @@ class MainWindow(QMainWindow):
         item = table.item(row, 0)
         return item.text() if item else None
     # ----------------------
+
+    def init_raccourcis(self):
+        # Sauvegarde
+        QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self.enregistrer_doses_culture)
+
+        # Nouveau fertilisant
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self.ajout_fert)
+
+        # Nouvelle culture
+        QShortcut(QKeySequence("Ctrl+C"), self).activated.connect(self.ajout_culture)
+
+        # Debug
+        QShortcut(QKeySequence("Ctrl+D"), self).activated.connect(self.redemarrer_debug)
