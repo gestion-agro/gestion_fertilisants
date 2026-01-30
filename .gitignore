@@ -27,3 +27,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# text
+commit.txt
+a_faire
+versionnee_github.txt
+*.txt
