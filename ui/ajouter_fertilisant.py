@@ -3,15 +3,12 @@ from pathlib import Path
 
 from paths import FERT_FILE
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFormLayout,
-    QLineEdit, QPushButton, QMessageBox,
-    QHBoxLayout, QComboBox, QTableWidgetItem,
-    QTableWidget, QLabel
-)
-from PySide6.QtGui import QDoubleValidator, QIntValidator
+from PySide6.QtCore import *
+from PySide6.QtWidgets import *
+from PySide6.QtGui import *
+import sys
 
+from utils.debug import debug
 
 class AjouterFertilisantWindow(QWidget):
     fertilisant_ajoute = Signal()
