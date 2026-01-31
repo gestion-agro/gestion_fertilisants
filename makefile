@@ -4,14 +4,31 @@
 # ========================
 # Configuration
 # ========================
-PYTHON=python3
-VENV=venv
-PIP=$(VENV)/bin/pip
-PY=$(VENV)/bin/python
+ifeq ($(OS),Windows_NT)
+	PYTHON=python
+	VENV=venv
+	VENV_BIN=$(VENV)/Scripts
+	PY=$(VENV_BIN)/python
+	PIP=$(VENV_BIN)/pip
+	PYINSTALLER=$(VENV_BIN)/pyinstaller
+	RM=rd /s /q
+else
+	PYTHON=python3
+	VENV=venv
+	VENV_BIN=$(VENV)/bin
+	PY=$(VENV_BIN)/python
+	PIP=$(VENV_BIN)/pip
+	PYINSTALLER=$(VENV_BIN)/pyinstaller
+	RM=rm -rf
+endif
+
 APP=app.py
 DIST=dist
 BUILD=build
-SPEC=app.spec
+NAME=gestion_fertilisants
+ICON=icon.ico
+
+	
 
 # ========================
 # Règles
