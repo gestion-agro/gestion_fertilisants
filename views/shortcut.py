@@ -12,6 +12,7 @@ from logic.calculs import calcul_auto, calcul_strict, calculer_doses_surface
 
 from views.culture import ajout_culture, supprimer_culture
 from views.fertilisants import ajout_fert, supprimer_fert
+from views.fertilisants_utilises import enlever_fert_utiliser
 
 from tables.remplissages import remplir_table_doses_ha
 
@@ -126,7 +127,7 @@ def suppr(window):
                 f"'{window.culture_active}' :",
                 nom
             )
-            window.enlever_fert_utiliser(nom)
+            enlever_fert_utiliser(window, nom)
         return
     # ======================
 # ----------------------
