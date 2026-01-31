@@ -1,3 +1,6 @@
+# Licensed under PolyForm Noncommercial 1.0.0
+# © 2026 Clément THIEULEUX
+
 from pathlib import Path
 import sys
 from paths import FERT_FILE, CULTURE_FILE, TOTAL_LABEL

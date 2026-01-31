@@ -1,3 +1,6 @@
+# Licensed under PolyForm Noncommercial 1.0.0
+# © 2026 Clément THIEULEUX
+
 import sys
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
