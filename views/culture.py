@@ -237,9 +237,14 @@ def culture_selectionnee_changed(window, row, column):
             
             debug("Suppression de l'affiche de lbl_modifie")
             mark_doses_modifiees(window, False)
+            
     else:
         debug("ℹ️ Aucun fertilisant enregistré → chargement par défaut")
         charger_ferts_pour_culture(window, nom_culture)
+
+    
+
+    remplir_tableaux(window)
 
     # --- Calcul doses ---
 # ----------------------
