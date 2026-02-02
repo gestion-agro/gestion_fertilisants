@@ -224,4 +224,4 @@ class MainWindow(QMainWindow):
 
         self.cultures_selectionnee = None
 
-        init_raccourcis(self)
+        init_raccourcis(self, self.DEBUG)

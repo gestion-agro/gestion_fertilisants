@@ -11,3 +11,4 @@ scipy==1.16.3
 shiboken6==6.10.1
 PuLP==3.3.0
 cvxpy==1.7.5
+requests==2.32.5

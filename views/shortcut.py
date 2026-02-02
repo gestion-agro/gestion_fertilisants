@@ -13,6 +13,7 @@ from logic.calculs import calcul_auto, calcul_strict, calculer_doses_surface
 from views.culture import ajout_culture, supprimer_culture
 from views.fertilisants import ajout_fert, supprimer_fert
 from views.fertilisants_utilises import enlever_fert_utiliser
+from views.dialogs import redemarrer_debug
 
 from tables.remplissages import remplir_table_doses_ha
 
@@ -24,7 +25,7 @@ calcul_auto_clavier
 calcul_strict_clavier
 """
 
-def init_raccourcis(window):
+def init_raccourcis(window, DEBUG):
     """
     Initialis tous les raccourcis clavier de l'application
     window = instance de MainWindow
@@ -61,7 +62,7 @@ def init_raccourcis(window):
         QKeySequence("Ctrl+D"),
         window
     ).activated.connect(
-        lambda: window.redemarrer_debug(True)
+        lambda: redemarrer_debug(window, clavier=True)
     )
 
     # Supprimer ligne

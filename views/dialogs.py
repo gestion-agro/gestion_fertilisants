@@ -22,7 +22,7 @@ def ouvrir_parametres(window):
 
 # Redemarrer en mode DEBUG
 def redemarrer_debug(window, clavier=False):
-    window.DEBUG = not window.DEBUG
+    DEBUG = not DEBUG
 
     if clavier:
         debug("Depuis raccourcis clavier")

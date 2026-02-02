@@ -6,12 +6,19 @@ from PySide6.QtGui import *
 from PySide6.QtCore import *
 
 from utils.debug import debug
+from utils.constantes import VERSION_URL
 
 from views.culture import ajout_culture
 from views.fertilisants import ajout_fert
 from views.dialogs import ouvrir_parametres, redemarrer_debug, afficher_aide, afficher_apropos
 
 from tables.remplissages import vider_table_calcul, vider_table_milieux
+
+
+from logic.update import check_update, download_update
+
+import subprocess
+import sys
 
 """
 init_menu
@@ -107,3 +114,50 @@ def init_menu(window):
     # ======================
 
     debug("Menu initialisé")
+
+
+def verifier_mise_a_jour(self):
+    try:
+        has_update, data = check_update()
+    except Exception as e:
+        QMessageBox.critical(
+            self,
+            "Erreur",
+            f"Impossible de vérifier les mises à jour\n{e}"
+        )
+        return
+
+    if not has_update:
+        QMessageBox.information(
+            self,
+            "Mise à jour",
+            "Application à jout"
+        )
+        return
+    
+
+    has_update, data = check_update(VERSION_URL)
+
+    if not has_update:
+        QMessageBox.information(self, "Mise à jour", "Application à jour ✅")
+        return
+
+    if QMessageBox.question(
+        self,
+        "Mise à jour disponible",
+        f"Nouvelle version {data['version']} disponible.\nInstaller ?"
+    ) != QMessageBox.Yes:
+        return
+
+    if sys.platform.startswith("win"):
+        url = data["windows"]["url"]
+        new_file = "gestion_fertilisants_new.exe"
+        script = "update.bat"
+    else:
+        url = data["linux"]["url"]
+        new_file = "gestion_fertilisants_new"
+        script = "update.sh"
+
+    download_update(url, new_file)
+    subprocess.Popen([script], shell=True)
+    sys.exit(0)
