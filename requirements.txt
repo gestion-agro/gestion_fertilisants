@@ -9,5 +9,5 @@ PySide6_Addons==6.10.1
 PySide6_Essentials==6.10.1
 scipy==1.16.3
 shiboken6==6.10.1
-PuLP=3.3.0
-
+PuLP==3.3.0
+cvxpy==1.7.5

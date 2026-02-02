@@ -151,7 +151,7 @@ class MainWindow(QMainWindow):
 
         self.table_doses_surface = QTableWidget(0, 7)
         self.table_doses_surface.setHorizontalHeaderLabels(
-            ["Fertilisant", "Dose", "Prix (dose)", "Conditionnement", "Prix unitaire", "Quantité", "Prix HT"]
+            ["Fertilisant", "Dose", "Prix (dose)", "Cdtmt", "Prix unitaire", "Quantité", "Prix HT"]
         )
         self.table_doses_surface.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table_doses_surface.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -187,7 +187,7 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(btn_add_fert)
 
         self.table_fertilisants = QTableWidget(0, 7)
-        self.table_fertilisants.setHorizontalHeaderLabels(["Nom", "N", "P", "K", "Conditionnement", "Prix", "Utilisable"])
+        self.table_fertilisants.setHorizontalHeaderLabels(["Nom", "N", "P", "K", "Cdtmt", "Prix", "Utilisable"])
         self.table_fertilisants.cellDoubleClicked.connect(
             lambda row, column : double_clic_fertilisant(self, row, column)
         )
@@ -210,7 +210,7 @@ class MainWindow(QMainWindow):
         # Mettre le splitter comme layout principal
         main_layout = QVBoxLayout(central_widget)
         main_layout.addWidget(splitter)
-        splitter.setSizes([300, 700, 400])
+        splitter.setSizes([300, 600, 400])
         # ----------------------
 
         # Charger les données
