@@ -9,9 +9,8 @@ permissions:
   contents: write
 
 jobs:
-
   # ======================
-  # LINUX
+  # LINUX: .deb + AppImage
   # ======================
   build-linux:
     runs-on: ubuntu-latest
@@ -21,23 +20,33 @@ jobs:
       - name: Setup Python
         run: |
           sudo apt update
-          sudo apt install -y python3.11 python3.11-venv python3-pip build-essential fakeroot dpkg-dev libglib2.0-0
-          python3.11 -m venv /tmp/venv
+          sudo apt install -y python3 python3-venv python3-pip build-essential fakeroot dpkg-dev libglib2.0-0 wget xz-utils
+          python3 -m venv /tmp/venv
           source /tmp/venv/bin/activate
           pip install --upgrade pip pyinstaller PySide6 requests
 
+      # ----------------------
+      # Build Linux binary
+      # ----------------------
       - name: Build Linux binary
         run: |
           source /tmp/venv/bin/activate
           pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data 'version.txt:.'
           mv dist/Gestion_Fertilisant dist/Gestion_Fertilisant_linux
 
+      # ----------------------
+      # Create .deb package
+      # ----------------------
       - name: Create .deb
         run: |
           mkdir -p deb_package/DEBIAN
           mkdir -p deb_package/usr/local/bin
+          mkdir -p deb_package/usr/local/share/Gestion_Fertilisant
+          mkdir -p deb_package/usr/share/applications
 
           cp dist/Gestion_Fertilisant_linux deb_package/usr/local/bin/Gestion_Fertilisant
+          cp version.txt deb_package/usr/local/share/Gestion_Fertilisant/
+          cp icon.png deb_package/usr/local/share/Gestion_Fertilisant/ || true
 
           echo "Package: gestion-fertilisant" > deb_package/DEBIAN/control
           echo "Version: ${GITHUB_REF_NAME#v}" >> deb_package/DEBIAN/control
@@ -47,20 +56,48 @@ jobs:
           echo "Maintainer: Clement" >> deb_package/DEBIAN/control
           echo "Description: Gestion Fertilisant" >> deb_package/DEBIAN/control
 
-          dpkg-deb --build deb_package
+          dpkg-deb --build deb_package Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
 
-          mkdir -p dist
-          mv deb_package.deb dist/Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb || mv deb_package dist/Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
+      # ----------------------
+      # Create AppImage
+      # ----------------------
+      - name: Build AppImage
+        run: |
+          # Installer linuxdeploy et plugin AppImage
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
 
-          echo "FILES DIST:"
-          ls -lah dist
+          # Préparer répertoire AppDir
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
-      - name: Upload Linux artifact
+          cp dist/Gestion_Fertilisant_linux AppDir/usr/bin/Gestion_Fertilisant
+          cp icon.png AppDir/usr/share/icons/hicolor/256x256/apps/Gestion_Fertilisant.png
+
+          # Créer fichier .desktop pour menu
+          echo "[Desktop Entry]" > AppDir/usr/share/applications/Gestion_Fertilisant.desktop
+          echo "Name=Gestion Fertilisant" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
+          echo "Exec=Gestion_Fertilisant" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
+          echo "Icon=Gestion_Fertilisant" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
+          echo "Terminal=false" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
+          echo "Type=Application" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
+          echo "Categories=Utility;" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
+
+          # Générer l’AppImage
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+
+      # ----------------------
+      # Upload Linux artifacts
+      # ----------------------
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux
-          path: dist/*.deb
-
+          name: linux-release
+          path: |
+            dist/Gestion_Fertilisant_linux
+            Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
+            *.AppImage
 
   # ======================
   # WINDOWS
@@ -89,7 +126,6 @@ jobs:
           name: windows
           path: dist/Gestion_Fertilisant_windows.exe
 
-
   # ======================
   # MACOS
   # ======================
@@ -117,7 +153,6 @@ jobs:
         with:
           name: macos
           path: dist/Gestion_Fertilisant_macos
-
 
   # ======================
   # RELEASE
