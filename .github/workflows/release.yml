@@ -1,4 +1,4 @@
-name: Build Linux Release
+name: Build Linux Release (Debian 12)
 
 on:
   push:
@@ -10,25 +10,20 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest   # GitHub Actions runner, mais le build sera dans Docker Debian 12
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install deps
+      - name: Build with Debian 12 Docker
         run: |
-          pip install pyinstaller
-          pip install PySide6 requests
-
-      - name: Build
-        run: |
-          pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data "version.txt:."
+          docker run --rm -v $PWD:/app -w /app debian:bookworm bash -c "
+            apt update && apt install -y python3 python3-venv python3-pip build-essential wget libgl1-mesa-glx libglib2.0-0
+            python3 -m pip install --upgrade pip
+            pip install pyinstaller PySide6 requests
+            pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data 'version.txt:.'
+          "
 
       - name: Prepare archive
         run: |
