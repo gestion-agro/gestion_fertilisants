@@ -46,7 +46,7 @@ jobs:
 
           cp dist/Gestion_Fertilisant_linux deb_package/usr/local/bin/Gestion_Fertilisant
           cp version.txt deb_package/usr/local/share/Gestion_Fertilisant/
-          cp icon.png deb_package/usr/local/share/Gestion_Fertilisant/ || true
+          cp icon.ico deb_package/usr/local/share/Gestion_Fertilisant/ || true
 
           echo "Package: gestion-fertilisant" > deb_package/DEBIAN/control
           echo "Version: ${GITHUB_REF_NAME#v}" >> deb_package/DEBIAN/control
@@ -73,7 +73,7 @@ jobs:
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
           cp dist/Gestion_Fertilisant_linux AppDir/usr/bin/Gestion_Fertilisant
-          cp icon.png AppDir/usr/share/icons/hicolor/256x256/apps/Gestion_Fertilisant.png
+          cp icon.ico AppDir/usr/share/icons/hicolor/256x256/apps/Gestion_Fertilisant.png
 
           # Créer fichier .desktop pour menu
           echo "[Desktop Entry]" > AppDir/usr/share/applications/Gestion_Fertilisant.desktop
