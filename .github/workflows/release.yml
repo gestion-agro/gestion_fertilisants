@@ -95,9 +95,8 @@ jobs:
         with:
           name: linux-release
           path: |
-            dist/Gestion_Fertilisant_linux
-            Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
-            *.AppImage
+            dist/Gestion_Fertilisant_linux*.deb
+            Gestion_Fertilisant*.AppImage
 
   # ======================
   # WINDOWS
