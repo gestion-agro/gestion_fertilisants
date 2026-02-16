@@ -20,7 +20,7 @@ jobs:
       - name: Setup Python
         run: |
           sudo apt update
-          sudo apt install -y python3 python3-venv python3-pip build-essential fakeroot dpkg-dev libgl1-mesa-glx libglib2.0-0
+          apt install -y python3 python3-venv python3-pip build-essential fakeroot dpkg-dev libgl1 libglib2.0-0
           python3 -m venv /tmp/venv
           source /tmp/venv/bin/activate
           pip install --upgrade pip pyinstaller PySide6 requests
@@ -113,11 +113,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip3 install --upgrade pip PySide6 requests
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pyinstaller PySide6 requests
 
       - name: Build macOS binary
         run: |
-          pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data "version.txt:."
+          python3 -m PyInstaller --onefile app.py --name Gestion_Fertilisant --add-data "version.txt:."
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
