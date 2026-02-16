@@ -29,7 +29,6 @@ jobs:
         run: |
           source /tmp/venv/bin/activate
           pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data 'version.txt:.'
-
       - name: Create .deb package
         run: |
           mkdir -p deb_package/DEBIAN
@@ -37,12 +36,10 @@ jobs:
           mkdir -p deb_package/usr/local/share/Gestion_Fertilisant
           mkdir -p deb_package/usr/share/applications
 
-          # Copy binary and version
           cp dist/Gestion_Fertilisant deb_package/usr/local/bin/
           cp version.txt deb_package/usr/local/share/Gestion_Fertilisant/
           cp icon.png deb_package/usr/local/share/Gestion_Fertilisant/ || true
 
-          # Create .desktop using echo lines
           echo "[Desktop Entry]" > deb_package/usr/share/applications/gestion_fertilisant.desktop
           echo "Name=Gestion Fertilisant" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
           echo "Exec=/usr/local/bin/Gestion_Fertilisant" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
@@ -51,18 +48,21 @@ jobs:
           echo "Type=Application" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
           echo "Categories=Utility;" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
 
-          # Create DEBIAN/control using echo lines
           echo "Package: gestion-fertilisant" > deb_package/DEBIAN/control
           echo "Version: ${GITHUB_REF_NAME#v}" >> deb_package/DEBIAN/control
           echo "Section: utils" >> deb_package/DEBIAN/control
           echo "Priority: optional" >> deb_package/DEBIAN/control
           echo "Architecture: amd64" >> deb_package/DEBIAN/control
-          echo "Maintainer: Clément THIEULEUX <ton.email@example.com>" >> deb_package/DEBIAN/control
+          echo "Maintainer: Clement" >> deb_package/DEBIAN/control
           echo "Description: Gestion Fertilisant Application" >> deb_package/DEBIAN/control
 
-          # Build the .deb
           dpkg-deb --build deb_package
+
+          ls -lah
+
           mv deb_package.deb Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
+
+          ls -lah
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
