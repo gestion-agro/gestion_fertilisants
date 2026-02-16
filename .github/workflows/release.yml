@@ -34,7 +34,7 @@ jobs:
           tar -czf Gestion_Fertilisant-linux-${GITHUB_REF_NAME}.tar.gz Gestion_Fertilisant version.txt
 
       - name: Upload Linux artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linux-release
           path: release/linux/Gestion_Fertilisant-linux-${GITHUB_REF_NAME}.tar.gz
@@ -59,7 +59,7 @@ jobs:
           pyinstaller --onefile app.py --name Gestion_Fertilisant.exe --add-data "version.txt;."
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows-release
           path: dist/Gestion_Fertilisant.exe
@@ -84,7 +84,7 @@ jobs:
           pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data "version.txt:."
 
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macos-release
           path: dist/Gestion_Fertilisant
@@ -96,19 +96,19 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download Linux artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: linux-release
           path: release/linux
 
       - name: Download Windows artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: windows-release
           path: release/windows
 
       - name: Download macOS artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: macos-release
           path: release/macos
