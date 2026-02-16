@@ -58,12 +58,7 @@ run:
 	$(PY) $(APP)
 
 build:
-	$(VENV)/bin/pyinstaller \
-	--onefile \
-	--windowed \
-	--icon=icon.ico \
-	--name=$(NAME) \
-	$(APP)
+	$(VENV)/bin/pyinstaller --onefile --windowed --icon=icon.ico --add-data "version.txt:." --name=$(NAME) $(APP)
 
 releases: build
 	@echo "Préparation des dossiers de releases..."
