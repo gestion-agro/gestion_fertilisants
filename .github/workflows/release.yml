@@ -31,7 +31,7 @@ jobs:
           source /tmp/venv/bin/activate
           pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data 'version.txt:.'
           mv dist/Gestion_Fertilisant dist/Gestion_Fertilisant_linux
-          
+
       - name: Create .deb
         run: |
           mkdir -p deb_package/DEBIAN
@@ -47,9 +47,13 @@ jobs:
           echo "Maintainer: Clement" >> deb_package/DEBIAN/control
           echo "Description: Gestion Fertilisant" >> deb_package/DEBIAN/control
 
-          dpkg-deb --build deb_package Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
+          dpkg-deb --build deb_package
 
-          ls -lah
+          mkdir -p dist
+          mv deb_package.deb dist/Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb || mv deb_package dist/Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
+
+          echo "FILES DIST:"
+          ls -lah dist
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
