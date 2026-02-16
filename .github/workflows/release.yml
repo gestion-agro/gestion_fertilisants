@@ -31,13 +31,16 @@ jobs:
           cp dist/Gestion_Fertilisant release/linux/
           echo ${GITHUB_REF_NAME#v} > release/linux/version.txt
           cd release/linux
-          tar -czf Gestion_Fertilisant-linux-${GITHUB_REF_NAME}.tar.gz Gestion_Fertilisant version.txt
+          # utilise une variable bash locale
+          TAR_NAME="Gestion_Fertilisant-linux-${GITHUB_REF_NAME}.tar.gz"
+          tar -czf "$TAR_NAME" Gestion_Fertilisant version.txt
+          echo "Created tar: $TAR_NAME"
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-release
-          path: release/linux/Gestion_Fertilisant-linux-${GITHUB_REF_NAME}.tar.gz
+          path: release/linux/Gestion_Fertilisant-linux-*.tar.gz
 
   build-windows:
     runs-on: windows-latest
