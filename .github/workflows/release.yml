@@ -12,65 +12,65 @@ jobs:
   # ======================
   # Linux build + .deb
   # ======================
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+build-linux:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
 
-      - name: Setup Python
-        run: |
-          sudo apt update
-          sudo apt install -y python3 python3-venv python3-pip build-essential fakeroot dpkg-dev libgl1 libglib2.0-0
-          python3 -m venv /tmp/venv
-          source /tmp/venv/bin/activate
-          pip install --upgrade pip pyinstaller PySide6 requests
+    - name: Install system deps
+      run: |
+        sudo apt update
+        sudo apt install -y python3 python3-venv python3-pip build-essential fakeroot dpkg-dev libgl1 libglib2.0-0
 
-      - name: Build Linux binary
-        run: |
-          source /tmp/venv/bin/activate
-          pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data 'version.txt:.'
+    - name: Create venv + install python deps
+      run: |
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install pyinstaller PySide6 requests
 
-      - name: Create .deb package
-        run: |
-          mkdir -p deb_package/DEBIAN
-          mkdir -p deb_package/usr/local/bin
-          mkdir -p deb_package/usr/local/share/Gestion_Fertilisant
-          mkdir -p deb_package/usr/share/applications
+    - name: Build Linux binary
+      run: |
+        source venv/bin/activate
+        pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data "version.txt:."
 
-          # Copy binary and version
-          cp dist/Gestion_Fertilisant deb_package/usr/local/bin/
-          cp version.txt deb_package/usr/local/share/Gestion_Fertilisant/
-          cp icon.png deb_package/usr/local/share/Gestion_Fertilisant/ || true
+    - name: Create .deb
+      run: |
+        mkdir -p deb_package/DEBIAN
+        mkdir -p deb_package/usr/local/bin
+        mkdir -p deb_package/usr/local/share/Gestion_Fertilisant
+        mkdir -p deb_package/usr/share/applications
 
-          # Create .desktop using echo lines
-          echo "[Desktop Entry]" > deb_package/usr/share/applications/gestion_fertilisant.desktop
-          echo "Name=Gestion Fertilisant" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
-          echo "Exec=/usr/local/bin/Gestion_Fertilisant" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
-          echo "Icon=/usr/local/share/Gestion_Fertilisant/icon.png" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
-          echo "Terminal=false" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
-          echo "Type=Application" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
-          echo "Categories=Utility;" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
+        cp dist/Gestion_Fertilisant deb_package/usr/local/bin/
+        cp version.txt deb_package/usr/local/share/Gestion_Fertilisant/
+        cp icon.png deb_package/usr/local/share/Gestion_Fertilisant/ || true
 
-          # Create DEBIAN/control using echo lines
-          echo "Package: gestion-fertilisant" > deb_package/DEBIAN/control
-          echo "Version: ${GITHUB_REF_NAME#v}" >> deb_package/DEBIAN/control
-          echo "Section: utils" >> deb_package/DEBIAN/control
-          echo "Priority: optional" >> deb_package/DEBIAN/control
-          echo "Architecture: amd64" >> deb_package/DEBIAN/control
-          echo "Maintainer: Clément THIEULEUX <ton.email@example.com>" >> deb_package/DEBIAN/control
-          echo "Description: Gestion Fertilisant Application" >> deb_package/DEBIAN/control
+        echo "[Desktop Entry]" > deb_package/usr/share/applications/gestion_fertilisant.desktop
+        echo "Name=Gestion Fertilisant" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
+        echo "Exec=/usr/local/bin/Gestion_Fertilisant" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
+        echo "Icon=/usr/local/share/Gestion_Fertilisant/icon.png" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
+        echo "Terminal=false" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
+        echo "Type=Application" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
+        echo "Categories=Utility;" >> deb_package/usr/share/applications/gestion_fertilisant.desktop
 
-          # Build the .deb
-          dpkg-deb --build deb_package
-          mv deb_package.deb Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
+        echo "Package: gestion-fertilisant" > deb_package/DEBIAN/control
+        echo "Version: ${GITHUB_REF_NAME#v}" >> deb_package/DEBIAN/control
+        echo "Section: utils" >> deb_package/DEBIAN/control
+        echo "Priority: optional" >> deb_package/DEBIAN/control
+        echo "Architecture: amd64" >> deb_package/DEBIAN/control
+        echo "Maintainer: Clément THIEULEUX" >> deb_package/DEBIAN/control
+        echo "Description: Gestion Fertilisant Application" >> deb_package/DEBIAN/control
 
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-release
-          path: |
-            dist/Gestion_Fertilisant
-            Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
+        dpkg-deb --build deb_package
+        mv deb_package.deb Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
+
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-release
+        path: |
+          dist/Gestion_Fertilisant
+          Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
 
   # ======================
   # Windows build
