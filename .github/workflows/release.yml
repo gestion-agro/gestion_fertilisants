@@ -95,7 +95,7 @@ jobs:
         with:
           name: linux-release
           path: |
-            Gestion_Fertilisant_linux*.deb
+            Gestion_Fertilisant*.deb
             Gestion_Fertilisant*.AppImage
 
   # ======================
