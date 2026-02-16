@@ -21,6 +21,7 @@ dist/
 *.dll
 *.so
 *.dylib
+*.tar.gz
 
 # ===== OS / éditeur =====
 .DS_Store
