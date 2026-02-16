@@ -15,7 +15,7 @@ from views.dialogs import ouvrir_parametres, redemarrer_debug, afficher_aide, af
 from tables.remplissages import vider_table_calcul, vider_table_milieux
 
 
-from logic.update import check_update, download_update
+from updater import check_update, run_update
 
 import subprocess
 import sys
@@ -102,7 +102,7 @@ def init_menu(window):
 
     action_maj = QAction("Vérifier les mises à jour", window)
     action_maj.triggered.connect(
-        lambda : verifier_mise_a_jour(window)
+        lambda : check_updates_ui()
     )
     menu_aide.addAction(action_maj)
 
@@ -117,46 +117,16 @@ def init_menu(window):
 
     debug("Menu initialisé")
 
-
-def verifier_mise_a_jour(window):
-    try:
-        has_update, data = check_update(VERSION_URL)
-    except Exception as e:
-        QMessageBox.critical(
-            window,
-            "Erreur",
-            f"Impossible de vérifier les mises à jour\n{e}"
-        )
+def check_updates_ui():
+    version, url = check_update()
+    if not version:
+        QMessageBox.information(None, "Info", "Déjà à jour")
         return
+    reply = QMessageBox.question(
+        None,
+        "Mise à jour",
+        f"Nouvelle version {version} disponible. Installer ?"
+    )
+    if reply == QMessageBox.Yes:
+        run_update(url)
 
-    if not has_update:
-        QMessageBox.information(
-            window,
-            "Mise à jour",
-            "Application à jour"
-        )
-        return
-
-    if QMessageBox.question(
-        window,
-        "Mise à jour disponible",
-        f"Nouvelle version {data['version']} disponible.\nInstaller ?"
-    ) != QMessageBox.Yes:
-        return
-    
-    # Linux
-    url = data["linux"]["url"]
-    new_file = "gestion_fertilisants_new"
-    script = "update.sh"
-
-    try:
-        download_update(url, new_file)
-    except Exception as e:
-        QMessageBox.critical(
-            window,
-            "Erreur",
-            f"Impossible de lancer le script de mise à jour\n{e}"
-        )
-        return
-    
-    sys.exit(0)
