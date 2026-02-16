@@ -1,9 +1,12 @@
-name: Build & Release Linux
+name: Build Linux Release
 
 on:
   push:
     tags:
       - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -18,26 +21,26 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           pip install pyinstaller
-          pip install -r requirements.txt || true
+          pip install PySide6 requests
 
-      - name: Build executable
+      - name: Build
         run: |
-          pyinstaller --onefile app.py --name app
+          pyinstaller --onefile app.py --name Gestion_Fertilisant
 
-      - name: Create archive
+      - name: Prepare archive
         run: |
           mkdir release
-          cp dist/app release/
+          cp dist/Gestion_Fertilisant release/
           echo ${GITHUB_REF_NAME#v} > release/version.txt
           cd release
-          tar -czf app-linux-${GITHUB_REF_NAME}.tar.gz app version.txt
+          tar -czf Gestion_Fertilisant-linux-${GITHUB_REF_NAME}.tar.gz Gestion_Fertilisant version.txt
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release/app-linux-*.tar.gz
+          files: release/Gestion_Fertilisant-linux-*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
