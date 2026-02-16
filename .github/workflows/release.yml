@@ -72,6 +72,7 @@ jobs:
             dist/Gestion_Fertilisant
             Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
 
+
   # ======================
   # Windows build
   # ======================
