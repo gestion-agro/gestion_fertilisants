@@ -37,3 +37,6 @@ a_faire
 versionnee_github.txt
 *.txt
 ajout_licence.sh
+
+# VScode
+gestion_fertilisants.code-workspace

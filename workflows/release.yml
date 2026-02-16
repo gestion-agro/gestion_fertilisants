@@ -1,0 +1,43 @@
+name: Build & Release Linux
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+          pip install -r requirements.txt || true
+
+      - name: Build executable
+        run: |
+          pyinstaller --onefile app.py --name app
+
+      - name: Create archive
+        run: |
+          mkdir release
+          cp dist/app release/
+          echo ${GITHUB_REF_NAME#v} > release/version.txt
+          cd release
+          tar -czf app-linux-${GITHUB_REF_NAME}.tar.gz app version.txt
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/app-linux-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -101,7 +101,9 @@ def init_menu(window):
     menu_aide.addSeparator()
 
     action_maj = QAction("Vérifier les mises à jour", window)
-    action_maj.setEnabled(False)
+    action_maj.triggered.connect(
+        lambda : verifier_mise_a_jour(window)
+    )
     menu_aide.addAction(action_maj)
 
     menu_aide.addSeparator()
@@ -116,12 +118,12 @@ def init_menu(window):
     debug("Menu initialisé")
 
 
-def verifier_mise_a_jour(self):
+def verifier_mise_a_jour(window):
     try:
-        has_update, data = check_update()
+        has_update, data = check_update(VERSION_URL)
     except Exception as e:
         QMessageBox.critical(
-            self,
+            window,
             "Erreur",
             f"Impossible de vérifier les mises à jour\n{e}"
         )
@@ -129,35 +131,32 @@ def verifier_mise_a_jour(self):
 
     if not has_update:
         QMessageBox.information(
-            self,
+            window,
             "Mise à jour",
-            "Application à jout"
+            "Application à jour"
         )
-        return
-    
-
-    has_update, data = check_update(VERSION_URL)
-
-    if not has_update:
-        QMessageBox.information(self, "Mise à jour", "Application à jour ✅")
         return
 
     if QMessageBox.question(
-        self,
+        window,
         "Mise à jour disponible",
         f"Nouvelle version {data['version']} disponible.\nInstaller ?"
     ) != QMessageBox.Yes:
         return
+    
+    # Linux
+    url = data["linux"]["url"]
+    new_file = "gestion_fertilisants_new"
+    script = "update.sh"
 
-    if sys.platform.startswith("win"):
-        url = data["windows"]["url"]
-        new_file = "gestion_fertilisants_new.exe"
-        script = "update.bat"
-    else:
-        url = data["linux"]["url"]
-        new_file = "gestion_fertilisants_new"
-        script = "update.sh"
-
-    download_update(url, new_file)
-    subprocess.Popen([script], shell=True)
+    try:
+        download_update(url, new_file)
+    except Exception as e:
+        QMessageBox.critical(
+            window,
+            "Erreur",
+            f"Impossible de lancer le script de mise à jour\n{e}"
+        )
+        return
+    
     sys.exit(0)

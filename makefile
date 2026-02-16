@@ -25,6 +25,8 @@ endif
 APP=app.py
 DIST=dist
 BUILD=build
+RELEASEs=releases
+DOWNLOAD=download
 NAME=gestion_fertilisants
 ICON=icon.ico
 
@@ -60,8 +62,15 @@ build:
 	--onefile \
 	--windowed \
 	--icon=icon.ico \
-	--name=gestion_fertilisants \
+	--name=$(NAME) \
 	$(APP)
+
+releases: build
+	@echo "Préparation des dossiers de releases..."
+	mkdir -p $(DOWNLOAD)
+	@echo "Copie du binaire vers $(DOWNLOAD)..."
+	cp $(BUILD)/$(NAME) $(DOWNLOAD)/$(NAME)
+	@echo "Release prête"
 
 clean:
 	rm -rf $(BUILD) $(DIST) __pycache__
