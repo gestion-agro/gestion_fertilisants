@@ -59,9 +59,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux
-          path: |
-            dist/Gestion_Fertilisant_linux
-            Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
+          path: dist/*.deb
 
 
   # ======================
