@@ -28,7 +28,7 @@ jobs:
 
       - name: Build
         run: |
-          pyinstaller --onefile app.py --name Gestion_Fertilisant
+          pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data "version.txt:."
 
       - name: Prepare archive
         run: |
