@@ -16,28 +16,39 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:bookworm
+
     steps:
       - uses: actions/checkout@v4
 
+      # ----------------------
+      # Install deps
+      # ----------------------
       - name: Setup Python
         run: |
           apt update
-          apt install -y python3 python3-venv python3-pip build-essential fakeroot dpkg-dev libglib2.0-0 wget xz-utils
+          apt install -y python3 python3-venv python3-pip build-essential fakeroot dpkg-dev libglib2.0-0 wget xz-utils imagemagick
+
           python3 -m venv /tmp/venv
-          source /tmp/venv/bin/activate
-          pip install --upgrade pip pyinstaller PySide6 requests
+          . /tmp/venv/bin/activate
+          pip install --upgrade pip
+          pip install pyinstaller PySide6 requests
+
+          # convert ico → png
+          if [ -f icon.ico ]; then
+            convert icon.ico icon.png
+          fi
 
       # ----------------------
       # Build Linux binary
       # ----------------------
       - name: Build Linux binary
         run: |
-          source /tmp/venv/bin/activate
+          . /tmp/venv/bin/activate
           pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data 'version.txt:.'
           mv dist/Gestion_Fertilisant dist/Gestion_Fertilisant_linux
 
       # ----------------------
-      # Create .deb package
+      # Create .deb
       # ----------------------
       - name: Create .deb
         run: |
@@ -45,52 +56,64 @@ jobs:
           mkdir -p deb_package/usr/local/bin
           mkdir -p deb_package/usr/local/share/Gestion_Fertilisant
           mkdir -p deb_package/usr/share/applications
+          mkdir -p deb_package/usr/share/icons/hicolor/256x256/apps
 
           cp dist/Gestion_Fertilisant_linux deb_package/usr/local/bin/Gestion_Fertilisant
           cp version.txt deb_package/usr/local/share/Gestion_Fertilisant/
-          cp icon.ico deb_package/usr/local/share/Gestion_Fertilisant/ || true
 
-          echo "Package: gestion-fertilisant" > deb_package/DEBIAN/control
-          echo "Version: ${GITHUB_REF_NAME#v}" >> deb_package/DEBIAN/control
-          echo "Section: utils" >> deb_package/DEBIAN/control
-          echo "Priority: optional" >> deb_package/DEBIAN/control
-          echo "Architecture: amd64" >> deb_package/DEBIAN/control
-          echo "Maintainer: Clement" >> deb_package/DEBIAN/control
-          echo "Description: Gestion Fertilisant" >> deb_package/DEBIAN/control
+          cp icon.png deb_package/usr/share/icons/hicolor/256x256/apps/Gestion_Fertilisant.png || true
+
+          cat > deb_package/usr/share/applications/Gestion_Fertilisant.desktop <<EOF
+          [Desktop Entry]
+          Name=Gestion Fertilisant
+          Exec=/usr/local/bin/Gestion_Fertilisant
+          Icon=Gestion_Fertilisant
+          Terminal=false
+          Type=Application
+          Categories=Utility;
+          EOF
+
+          cat > deb_package/DEBIAN/control <<EOF
+          Package: gestion-fertilisant
+          Version: ${GITHUB_REF_NAME#v}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Clement
+          Description: Gestion Fertilisant
+          EOF
 
           dpkg-deb --build deb_package Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
 
       # ----------------------
-      # Create AppImage
+      # AppImage
       # ----------------------
       - name: Build AppImage
         run: |
-          # Installer linuxdeploy et plugin AppImage
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
-          # Préparer répertoire AppDir
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
           cp dist/Gestion_Fertilisant_linux AppDir/usr/bin/Gestion_Fertilisant
-          cp icon.ico AppDir/usr/share/icons/hicolor/256x256/apps/Gestion_Fertilisant.png
+          cp icon.png AppDir/usr/share/icons/hicolor/256x256/apps/Gestion_Fertilisant.png || true
 
-          # Créer fichier .desktop pour menu
-          echo "[Desktop Entry]" > AppDir/usr/share/applications/Gestion_Fertilisant.desktop
-          echo "Name=Gestion Fertilisant" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
-          echo "Exec=Gestion_Fertilisant" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
-          echo "Icon=Gestion_Fertilisant" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
-          echo "Terminal=false" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
-          echo "Type=Application" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
-          echo "Categories=Utility;" >> AppDir/usr/share/applications/Gestion_Fertilisant.desktop
+          cat > AppDir/usr/share/applications/Gestion_Fertilisant.desktop <<EOF
+          [Desktop Entry]
+          Name=Gestion Fertilisant
+          Exec=Gestion_Fertilisant
+          Icon=Gestion_Fertilisant
+          Terminal=false
+          Type=Application
+          Categories=Utility;
+          EOF
 
-          # Générer l’AppImage
           ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
 
       # ----------------------
-      # Upload Linux artifacts
+      # Upload
       # ----------------------
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
