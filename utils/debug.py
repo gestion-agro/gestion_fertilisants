@@ -3,7 +3,9 @@
 
 # utils/debug.py
 
-DEBUG = True
+# False = Pas débug
+# True = Débug
+DEBUG = False
 
 def debug(*args):
     if DEBUG:
