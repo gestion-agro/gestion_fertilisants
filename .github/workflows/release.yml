@@ -91,6 +91,10 @@ jobs:
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
+          # CI FIX → extract instead of mount
+          ./linuxdeploy-x86_64.AppImage --appimage-extract
+          mv squashfs-root linuxdeploy
+
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
@@ -108,7 +112,7 @@ jobs:
           Categories=Utility;
           EOF
 
-          ./linuxdeploy-x86_64.AppImage \
+          ./linuxdeploy/AppRun \
             --appdir AppDir \
             --desktop-file AppDir/usr/share/applications/Gestion_Fertilisant.desktop \
             --icon-file icon.png \
