@@ -31,7 +31,9 @@ jobs:
 
           python3 -m venv /tmp/venv
           . /tmp/venv/bin/activate
+          
           pip install --upgrade pip
+          pip install -r requirements.txt
           pip install pyinstaller PySide6 requests
 
           # icon fix
