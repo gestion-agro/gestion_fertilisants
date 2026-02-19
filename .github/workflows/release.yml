@@ -116,8 +116,7 @@ jobs:
             --appdir AppDir \
             --desktop-file AppDir/usr/share/applications/Gestion_Fertilisant.desktop \
             --icon-file icon.png \
-            --output appimage \
-            --no-appstream
+            --output appimage
 
       - name: Upload Linux
         uses: actions/upload-artifact@v4
