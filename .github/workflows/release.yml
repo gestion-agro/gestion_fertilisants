@@ -117,6 +117,10 @@ jobs:
             --desktop-file AppDir/usr/share/applications/Gestion_Fertilisant.desktop \
             --icon-file icon.png \
             --output appimage
+      - name : Cleanup
+        run: |
+          rm linuxdeploy*.AppImage || true
+          rm -rf linuxdeploy squashfs-root || true
 
       - name: Upload Linux
         uses: actions/upload-artifact@v4
