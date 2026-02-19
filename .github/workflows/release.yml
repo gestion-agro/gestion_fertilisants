@@ -147,11 +147,15 @@ jobs:
           rm linuxdeploy*.AppImage || true
           rm -rf linuxdeploy squashfs-root || true
 
+      - name: Check dist before upload
+        run: ls -l dist/
+
       - name: Upload Linux
         uses: actions/upload-artifact@v4
         with:
           name: linux
           path: |
+            dist/Gestion_Fertilisant_*_x86_64
             *.deb
             *.AppImage
 
@@ -197,7 +201,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: dist/Gestion_Fertilisant_${VERSION}_windows.exe
+          path: dist/Gestion_Fertilisant_*_windows.exe
 
   # ======================
   # MACOS
@@ -241,7 +245,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: dist/Gestion_Fertilisant_${VERSION}_macos
+          path: dist/Gestion_Fertilisant_*_macos
 
   # ======================
   # RELEASE
