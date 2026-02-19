@@ -46,10 +46,11 @@ jobs:
       # ----------------------
       - name: Build binary
         run: |
+          VERSION=${GITHUB_REF_NAME#v}
           . /tmp/venv/bin/activate
           pyinstaller \
           --onefile app.py \
-          --name Gestion_Fertilisant \
+          --name Gestion_Fertilisant_${VERSION}_linux \
           --add-data 'version.txt:.' \
           --add-data '/tmp/venv/lib/python3.*/site-packages/pulp/solverdir:pulp/solverdir' \
           --hidden-import pulp \
@@ -58,7 +59,7 @@ jobs:
           --hidden-import ecos \
           --hidden-import scs
 
-          mv dist/Gestion_Fertilisant dist/Gestion_Fertilisant_linux
+          mv dist/Gestion_Fertilisant_${VERSION}_linux dist/Gestion_Fertilisant_${VERSION}_x86_64
 
       # ----------------------
       # Build .deb
@@ -70,7 +71,7 @@ jobs:
           mkdir -p deb_package/usr/share/applications
           mkdir -p deb_package/usr/share/icons/hicolor/256x256/apps
 
-          cp dist/Gestion_Fertilisant_linux deb_package/usr/local/bin/Gestion_Fertilisant
+          cp dist/Gestion_Fertilisant_${VERSION}_x86_64 deb_package/usr/local/bin/Gestion_Fertilisant
           cp icon.png deb_package/usr/share/icons/hicolor/256x256/apps/Gestion_Fertilisant.png || true
 
           cat > deb_package/usr/share/applications/Gestion_Fertilisant.desktop <<EOF
@@ -111,7 +112,7 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
-          cp dist/Gestion_Fertilisant_linux AppDir/usr/bin/Gestion_Fertilisant
+          cp dist/Gestion_Fertilisant_${VERSION}_x86_64 AppDir/usr/bin/Gestion_Fertilisant
           cp icon.png AppDir/usr/share/icons/hicolor/256x256/apps/Gestion_Fertilisant.png || true
 
           cat > AppDir/usr/share/applications/Gestion_Fertilisant.desktop <<EOF
@@ -162,13 +163,24 @@ jobs:
           pip install pyinstaller PySide6 requests
 
       - name: Build exe
-        run: pyinstaller --onefile app.py --name Gestion_Fertilisant_windows.exe --add-data 'version.txt:.' --hidden-import pulp --hidden-import cvxpy --hidden-import osqp --hidden-import ecos --hidden-import scs
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          pyinstaller \
+          --onefile app.py \
+          --name Gestion_Fertilisant_${VERSION}_windows.exe \
+          --add-data 'version.txt;.' \
+          --hidden-import pulp \
+          --hidden-import cvxpy \
+          --hidden-import osqp \
+          --hidden-import ecos \
+          --hidden-import scs
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: dist/Gestion_Fertilisant_windows.exe
+          path: dist/Gestion_Fertilisant_${VERSION}_windows.exe
 
   # ======================
   # MACOS
@@ -191,9 +203,10 @@ jobs:
       - name: Build macOS binary
         shell: bash
         run: |
+          VERSION=${GITHUB_REF_NAME#v}
           pyinstaller \
           --onefile app.py \
-          --name Gestion_Fertilisant \
+          --name Gestion_Fertilisant_${VERSION}_macos \
           --add-data 'version.txt:.' \
           --add-data "$(python3 -c 'import pulp,os;print(os.path.dirname(pulp.__file__))')/solverdir:pulp/solverdir" \
           --hidden-import pulp \
@@ -202,13 +215,13 @@ jobs:
           --hidden-import ecos \
           --hidden-import scs
 
-          mv dist/Gestion_Fertilisant dist/Gestion_Fertilisant_macos
+          mv dist/Gestion_Fertilisant_${VERSION}_macos dist/Gestion_Fertilisant_${VERSION}_macos
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: dist/Gestion_Fertilisant_macos
+          path: dist/Gestion_Fertilisant_${VERSION}_macos
 
   # ======================
   # RELEASE
