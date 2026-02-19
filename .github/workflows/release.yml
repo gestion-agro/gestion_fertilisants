@@ -195,13 +195,13 @@ jobs:
           --onefile app.py \
           --name Gestion_Fertilisant \
           --add-data 'version.txt:.' \
-          --add-data "$(python3 -c 'import pulp,os;print(os.path.dirname(pulp.__file__))')/solverdir:pulp/solverdir"
+          --add-data "$(python3 -c 'import pulp,os;print(os.path.dirname(pulp.__file__))')/solverdir:pulp/solverdir" \
           --hidden-import pulp \
           --hidden-import cvxpy \
           --hidden-import osqp \
           --hidden-import ecos \
           --hidden-import scs
-          
+
           mv dist/Gestion_Fertilisant dist/Gestion_Fertilisant_macos
 
       - name: Upload macOS artifact
