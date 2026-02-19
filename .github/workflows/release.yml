@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:bookworm
+    env:
+      VERSION: ${{ github.ref_name }}
 
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +48,7 @@ jobs:
       # ----------------------
       - name: Build binary
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          VERSION=${VERSION#v}
           . /tmp/venv/bin/activate
           pyinstaller \
           --onefile app.py \
@@ -149,6 +151,8 @@ jobs:
   # ======================
   build-windows:
     runs-on: windows-latest
+    env:
+      VERSION: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
 
@@ -165,7 +169,7 @@ jobs:
       - name: Build exe
         shell: bash
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          VERSION=${VERSION#v}
           pyinstaller \
           --onefile app.py \
           --name Gestion_Fertilisant_${VERSION}_windows.exe \
@@ -187,6 +191,8 @@ jobs:
   # ======================
   build-macos:
     runs-on: macos-latest
+    env:
+      VERSION: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
 
@@ -203,7 +209,7 @@ jobs:
       - name: Build macOS binary
         shell: bash
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          VERSION=${VERSION#v}
           pyinstaller \
           --onefile app.py \
           --name Gestion_Fertilisant_${VERSION}_macos \
@@ -214,8 +220,6 @@ jobs:
           --hidden-import osqp \
           --hidden-import ecos \
           --hidden-import scs
-
-          mv dist/Gestion_Fertilisant_${VERSION}_macos dist/Gestion_Fertilisant_${VERSION}_macos
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
