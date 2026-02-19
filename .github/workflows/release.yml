@@ -62,6 +62,9 @@ jobs:
           --hidden-import scs
 
           mv dist/Gestion_Fertilisant_${VERSION}_linux dist/Gestion_Fertilisant_${VERSION}_x86_64
+          
+      - name: Check dist
+        run: ls -l dist/
 
       # ----------------------
       # Build .deb
@@ -98,6 +101,9 @@ jobs:
 
           dpkg-deb --build deb_package Gestion_Fertilisant_${GITHUB_REF_NAME#v}_amd64.deb
 
+      - name: Check dist
+        run: ls -l dist/
+
       # ----------------------
       # Build AppImage
       # ----------------------
@@ -132,6 +138,10 @@ jobs:
             --desktop-file AppDir/usr/share/applications/Gestion_Fertilisant.desktop \
             --icon-file icon.png \
             --output appimage
+          
+      - name: Check dist
+        run: ls -l dist/
+
       - name : Cleanup
         run: |
           rm linuxdeploy*.AppImage || true
@@ -179,6 +189,9 @@ jobs:
           --hidden-import osqp \
           --hidden-import ecos \
           --hidden-import scs
+          
+      - name: Check dist
+        run: ls -l dist/
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -220,6 +233,9 @@ jobs:
           --hidden-import osqp \
           --hidden-import ecos \
           --hidden-import scs
+          
+      - name: Check dist
+        run: ls -l dist/
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
