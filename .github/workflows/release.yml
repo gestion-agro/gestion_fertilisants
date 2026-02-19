@@ -119,6 +119,15 @@ jobs:
             --output appimage \
             --no-appstream
 
+      - name: Upload Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            *.deb
+            *.AppImage
+
+
   # ======================
   # WINDOWS
   # ======================
