@@ -47,7 +47,17 @@ jobs:
       - name: Build binary
         run: |
           . /tmp/venv/bin/activate
-          pyinstaller --onefile app.py --name Gestion_Fertilisant --add-data 'version.txt:.'
+          pyinstaller \
+          --onefile app.py \
+          --name Gestion_Fertilisant \
+          --add-data 'version.txt:.' \
+          --add-data '/tmp/venv/lib/python3.*/site-packages/pulp/solverdir:pulp/solverdir' \
+          --hidden-import pulp \
+          --hidden-import cvxpy \
+          --hidden-import osqp \
+          --hidden-import ecos \
+          --hidden-import scs
+
           mv dist/Gestion_Fertilisant dist/Gestion_Fertilisant_linux
 
       # ----------------------
@@ -153,7 +163,15 @@ jobs:
 
       - name: Build exe
         run: |
-          pyinstaller --onefile app.py --name Gestion_Fertilisant_windows.exe --add-data "version.txt;."
+          pyinstaller \
+          --onefile app.py \
+          --name Gestion_Fertilisant_windows.exe \
+          --add-data 'version.txt:.' \
+          --hidden-import pulp \
+          --hidden-import cvxpy \
+          --hidden-import osqp \
+          --hidden-import ecos \
+          --hidden-import scs
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -181,7 +199,16 @@ jobs:
 
       - name: Build macOS binary
         run: |
-          python3 -m PyInstaller --onefile app.py --name Gestion_Fertilisant --add-data "version.txt:."
+          python3 -m PyInstaller \
+          --onefile app.py \
+          --name Gestion_Fertilisant \
+          --add-data 'version.txt:.' \
+          --add-data "$(python3 -c 'import pulp,os;print(os.path.dirname(pulp.__file__))')/solverdir:pulp/solverdir"
+          --hidden-import pulp \
+          --hidden-import cvxpy \
+          --hidden-import osqp \
+          --hidden-import ecos \
+          --hidden-import scs
           mv dist/Gestion_Fertilisant dist/Gestion_Fertilisant_macos
 
       - name: Upload macOS artifact
