@@ -71,6 +71,7 @@ jobs:
       # ----------------------
       - name: Build deb
         run: |
+          VERSION={VERSION#v}
           mkdir -p deb_package/DEBIAN
           mkdir -p deb_package/usr/local/bin
           mkdir -p deb_package/usr/share/applications
@@ -109,6 +110,7 @@ jobs:
       # ----------------------
       - name: Build AppImage
         run: |
+          VERSION={VERSION#v}
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
