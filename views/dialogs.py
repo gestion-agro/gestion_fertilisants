@@ -5,8 +5,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from utils.debug import debug
-
+import utils.debug as debug
 """ 
 ouvrir_parametres
 redemarrer_debug
@@ -22,18 +21,20 @@ def ouvrir_parametres(window):
 
 # Redemarrer en mode DEBUG
 def redemarrer_debug(window, clavier=False):
-    DEBUG = not DEBUG
+    nouvel_etat = debug.toggle_debug()
 
     if clavier:
-        debug("Depuis raccourcis clavier")
-        
-    etat = "Activé" if window.DEBUG else "Désactivé"
+        debug.debug("Depuis raccourci clavier")
+
+    etat = "Activé" if nouvel_etat else "Désactivé"
+
     QMessageBox.information(
         window,
-        "Mode debug",
-        f"Mode debug {etat}"
+        "Mode DEBUG",
+        f"Mode DEBUG {etat}"
     )
-    debug("DEBUG =", window.DEBUG)
+
+    debug.debug("DEBUG =", nouvel_etat)
 # ----------------------
 
 # Aide

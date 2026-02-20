@@ -5,7 +5,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from utils.debug import debug
+import utils.debug as debug
 
 from logic.enregistrement import enregistrer_doses_culture
 from logic.calculs import calcul_auto, calcul_strict, calculer_doses_surface
@@ -25,13 +25,13 @@ calcul_auto_clavier
 calcul_strict_clavier
 """
 
-def init_raccourcis(window, DEBUG):
+def init_raccourcis(window):
     """
     Initialis tous les raccourcis clavier de l'application
     window = instance de MainWindow
     """
 
-    debug("Initialisation des raccourcis clavier")
+    debug.debug("Initialisation des raccourcis clavier")
 
     # Sauvegarde
     QShortcut(
@@ -95,7 +95,7 @@ def suppr(window):
     widget = QApplication.focusWidget()
 
     if widget is None:
-        debug("Pas de sélection")
+        debug.debug("Pas de sélection")
         return
     
     # Cultures
@@ -103,7 +103,7 @@ def suppr(window):
     if widget == window.table_cultures:
         nom = _nom_selectionnes(window, window.table_cultures)
         if nom:
-            debug("Suppression de la culture", nom)
+            debug.debug("Suppression de la culture", nom)
             supprimer_culture(window, nom)
         return
     # ======================
@@ -113,7 +113,7 @@ def suppr(window):
     if widget == window.table_fertilisants:
         nom = _nom_selectionnes(window, window.table_fertilisants)
         if nom:
-            debug("Suppression du fertilisant", nom)
+            debug.debug("Suppression du fertilisant", nom)
             supprimer_fert(window, nom)
         return
     # ======================
@@ -123,7 +123,7 @@ def suppr(window):
     if widget == window.table_utiliser:
         nom = _nom_selectionnes(window, window.table_utiliser)
         if nom:
-            debug(
+            debug.debug(
                 f"Suppression pour la cuture de",
                 f"'{window.culture_active}' :",
                 nom
@@ -147,17 +147,17 @@ def _nom_selectionnes(window, table):
 # Raccourcis clavier pour renvoyer vers calcul auto
 # ----------------------
 def calcul_auto_clavier(window):
-    debug("Raccourcis clavier pour calcul auto des doses")
+    debug.debug("Raccourcis clavier pour calcul auto des doses")
     # Vérifier culture
     if not hasattr(window, "culture_active") or not window.culture_active:
-        debug("⛔ Aucune culture active")
+        debug.debug("⛔ Aucune culture active")
         QMessageBox.warning(window, "Erreur", "Aucune culture sélectionnée")
         return
 
     culture = window.cultures[window.culture_active]
     Nb, Pb, Kb = culture["N"], culture["P"], culture["K"]
 
-    debug(
+    debug.debug(
         f"Culture active : {window.culture_active}",
         f"Besoins → N={Nb} P={Pb} K={Kb}"
     )
@@ -173,7 +173,7 @@ def calcul_auto_clavier(window):
         }
         ferts.append(fert)
 
-    debug(f"Fertilisants table_utiliser ({len(ferts)}) :", ferts)
+    debug.debug(f"Fertilisants table_utiliser ({len(ferts)}) :", ferts)
 
     window.table_doses_ha.setRowCount(0)
     window.table_doses_surface.setRowCount(0)
@@ -181,7 +181,7 @@ def calcul_auto_clavier(window):
     
     resultats = calcul_auto(window, Nb, Pb, Kb)
 
-    debug("Résultats calcul :", resultats)
+    debug.debug("Résultats calcul :", resultats)
 
     remplir_table_doses_ha(window, resultats["fertilisants"])
     calculer_doses_surface(window, resultats["fertilisants"], culture)
@@ -190,18 +190,18 @@ def calcul_auto_clavier(window):
 # Raccourcis clavier pour renvoyer vers calcul strict
 # ----------------------
 def calcul_strict_clavier(window):
-    debug("Raccourcis clavier pour calcul strict des doses")
+    debug.debug("Raccourcis clavier pour calcul strict des doses")
 
     # Vérifier culture
     if not hasattr(window, "culture_active") or not window.culture_active:
-        debug("⛔ Aucune culture active")
+        debug.debug("⛔ Aucune culture active")
         QMessageBox.warning(window, "Erreur", "Aucune culture sélectionnée")
         return
 
     culture = window.cultures[window.culture_active]
     Nb, Pb, Kb = culture["N"], culture["P"], culture["K"]
 
-    debug(
+    debug.debug(
         f"Culture active : {window.culture_active}",
         f"Besoins → N={Nb} P={Pb} K={Kb}"
     )
@@ -217,11 +217,11 @@ def calcul_strict_clavier(window):
         }
         ferts.append(fert)
 
-    debug(f"Fertilisants table_utiliser ({len(ferts)}) :", ferts)
+    debug.debug(f"Fertilisants table_utiliser ({len(ferts)}) :", ferts)
 
     # --- Choix du mode ---
     if not ferts:
-        debug("➡️ Aucun fertilisant manuel")
+        debug.debug("➡️ Aucun fertilisant manuel")
         QMessageBox.warning(
             window,
             "Aucun fertiliants",
@@ -231,7 +231,7 @@ def calcul_strict_clavier(window):
     else:
         resultats = calcul_strict(window, Nb, Pb, Kb, ferts)
 
-    debug("Résultats calcul :", resultats)
+    debug.debug("Résultats calcul :", resultats)
 
     window.table_doses_ha.setRowCount(0)
     window.table_doses_surface.setRowCount(0)

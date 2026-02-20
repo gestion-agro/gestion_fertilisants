@@ -5,7 +5,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtCore import *
 
-from utils.debug import debug
+import utils.debug as debug
 from utils.constantes import VERSION_URL
 
 from views.culture import ajout_culture
@@ -115,7 +115,7 @@ def init_menu(window):
     menu_aide.addAction(action_aporpos)
     # ======================
 
-    debug("Menu initialisé")
+    debug.debug("Menu initialisé")
 
 def check_updates_ui():
     version, url = check_update()

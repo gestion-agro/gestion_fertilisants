@@ -46,3 +46,7 @@ versionnee_github.txt
 
 # VScode
 gestion_fertilisants.code-workspace
+
+AppDir/
+deb_package/
+linuxdeploy/

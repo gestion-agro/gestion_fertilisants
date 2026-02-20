@@ -5,7 +5,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from utils.debug import debug
+import utils.debug as debug
 
 from logic.calculs import calculer_doses_surface
 
@@ -26,23 +26,23 @@ charger_ferts_pour_culture
 # ----------------------
 # Charger les fertilisants
 def charger_fertilisants(window):
-    debug("=== charger_fertilisants ===")
-    debug("=== Fichier :", FERT_FILE)
+    debug.debug("=== charger_fertilisants ===")
+    debug.debug("=== Fichier :", FERT_FILE)
     
     try:
         with open(FERT_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
 
             if not isinstance(data, list):
-                debug("⚠️ Données invalides : pas une liste → reset []")
+                debug.debug("⚠️ Données invalides : pas une liste → reset []")
                 data = []
 
-            debug(f"{len(data)} fertiliant(s) chergé(s) depuis le fichiers")
+            debug.debug(f"{len(data)} fertiliant(s) chergé(s) depuis le fichiers")
 
             # S'assurer que chaque élément est bien un dict avec les champs nécessaire
             for i, fert in enumerate(data):
                 if not isinstance(fert, dict):
-                    debug(f"⛔ Élément {i} ignoré (pas un dict)")
+                    debug.debug(f"⛔ Élément {i} ignoré (pas un dict)")
                     continue # Ignorer si ce n'est pas le cas
 
                 fert.setdefault("stock", 0)
@@ -53,7 +53,7 @@ def charger_fertilisants(window):
                 fert.setdefault("conditionnement", 1)
                 fert.setdefault("prix", 0)
 
-                debug(
+                debug.debug(
                     f"✔ Fertilisant {i} :",
                     fert.get("nom", "<sans nom>"),
                     f"NPK=({fert['N']},{fert['P']},{fert['K']})",
@@ -63,32 +63,32 @@ def charger_fertilisants(window):
 
             return data
     except FileNotFoundError:
-        debug("❌ Fichier fertilisants introuvable")
+        debug.debug("❌ Fichier fertilisants introuvable")
         return []
     
     except json.JSONDecodeError as e:
-        debug("❌ Erreur JSON :", e)
+        debug.debug("❌ Erreur JSON :", e)
         return
 # ----------------------
 
 # ----------------------
 # Charger les cultures
 def charger_cultures(window):
-    debug("=== charger_cultures ===")
-    debug("Fichiers :", CULTURE_FILE)
+    debug.debug("=== charger_cultures ===")
+    debug.debug("Fichiers :", CULTURE_FILE)
 
     try:
         with open(CULTURE_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
 
             if not isinstance(data, dict):
-                debug("⚠️ Données invalides : pas un dict → reset {}")
+                debug.debug("⚠️ Données invalides : pas un dict → reset {}")
                 data = {}
 
-            debug(f"{len(data)} culture(s) chargée(s)")
+            debug.debug(f"{len(data)} culture(s) chargée(s)")
 
             for nom, culture in data.items():
-                debug(
+                debug.debug(
                     f"✔ Culture : {nom}",
                     f"N={culture.get('N', 0)}",
                     f"P={culture.get('P', 0)}",
@@ -99,47 +99,47 @@ def charger_cultures(window):
             return data
         
     except FileNotFoundError:
-        debug("❌ Fichier fertilisants introuvable")
+        debug.debug("❌ Fichier fertilisants introuvable")
         return {}
     
     except json.JSONDecodeError as e:
-        debug("❌ Erreur JSON :", e)
+        debug.debug("❌ Erreur JSON :", e)
         return {}
 # ----------------------
 
 # ----------------------
 # Recharger les cultures
 def recharger_cultures(window):
-    debug("=== recharger_cultures ===")
+    debug.debug("=== recharger_cultures ===")
 
     window.cultures = charger_cultures(window)
-    debug(f"{len(window.cultures)} culture(s) apres rechargement")
+    debug.debug(f"{len(window.cultures)} culture(s) apres rechargement")
 
     remplir_tableaux(window)
-    debug("Tableaux rafraîchis (cultures)")
+    debug.debug("Tableaux rafraîchis (cultures)")
 # ----------------------
 
 # ----------------------
 # Recharger les fertilisants
 def recharger_fertilisants(window):
-    debug("=== recharger_fertilisants ===")
+    debug.debug("=== recharger_fertilisants ===")
 
     window.fert_base = charger_fertilisants(window)
-    debug(f"{len(window.fert_base)} fertilisant(s) après rechargement")
+    debug.debug(f"{len(window.fert_base)} fertilisant(s) après rechargement")
 
     remplir_tableaux(window)
-    debug("Tableau rafraîchis (fertilisants)")
+    debug.debug("Tableau rafraîchis (fertilisants)")
 # ----------------------
 
 # ----------------------
 # Charger les fertilisants de la culture selectionnée
 def charger_ferts_pour_culture(window, nom_culture):
-    debug("\n=== charger_ferts_pour_culture ===")
-    debug("Culture demandée :", nom_culture)
+    debug.debug("\n=== charger_ferts_pour_culture ===")
+    debug.debug("Culture demandée :", nom_culture)
 
     culture = window.cultures.get(nom_culture)
     if not culture:
-        debug("⛔ Culture introuvable")
+        debug.debug("⛔ Culture introuvable")
         window.table_utiliser.setRowCount(0)
         return
 
@@ -148,13 +148,13 @@ def charger_ferts_pour_culture(window, nom_culture):
     window.table_doses_surface.setRowCount(0)
 
     ferts_utilises = culture.get("fertilisants_utilises", [])
-    debug("Fertilisants culture :", ferts_utilises)
+    debug.debug("Fertilisants culture :", ferts_utilises)
 
     for f in ferts_utilises:
         nom = f["nom"]
         fert_base = next((fb for fb in window.fert_base if fb["nom"] == nom), None)
         if not fert_base:
-            debug("⛔ Fertilisant manquant dans base :", nom)
+            debug.debug("⛔ Fertilisant manquant dans base :", nom)
             continue
 
         row = window.table_utiliser.rowCount()
@@ -166,7 +166,7 @@ def charger_ferts_pour_culture(window, nom_culture):
         window.table_utiliser.setItem(row, 3, QTableWidgetItem(str(fert_base.get("K", 0))))
         window.table_utiliser.setItem(row, 4, QTableWidgetItem(str(f.get("doses_ha", 0))))
 
-        debug(f"➕ table_utiliser ← {nom}")
+        debug.debug(f"➕ table_utiliser ← {nom}")
 
     for f in ferts_utilises:
         nom = f["nom"]
@@ -188,7 +188,7 @@ def charger_ferts_pour_culture(window, nom_culture):
         window.table_doses_ha.setItem(row, 3, QTableWidgetItem(f"{K:.1f}"))
         window.table_doses_ha.setItem(row, 4, QTableWidgetItem(f"{doses_ha:.1f}"))
 
-        debug(f"📊 table_doses_ha ← {nom}")
+        debug.debug(f"📊 table_doses_ha ← {nom}")
 
     calculer_doses_surface(
         window,
@@ -205,5 +205,5 @@ def charger_ferts_pour_culture(window, nom_culture):
         culture
     )
 
-    debug("📐 Doses surface recalculées")
+    debug.debug("📐 Doses surface recalculées")
 # ----------------------

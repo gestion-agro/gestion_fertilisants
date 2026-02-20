@@ -7,6 +7,18 @@
 # True = Débug
 DEBUG = False
 
+def set_debug(value: bool):
+    global DEBUG
+    DEBUG = value
+
+def toggle_debug():
+    global DEBUG
+    DEBUG = not DEBUG
+    return DEBUG
+
+def is_debug():
+    return DEBUG
+
 def debug(*args):
     if DEBUG:
         print(*args)

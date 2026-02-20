@@ -18,7 +18,7 @@ from logic.calculs import calculer_doses
 from logic.enregistrement import enregistrer_doses_culture
 from logic.chargement import charger_fertilisants, charger_cultures
 
-from utils.debug import debug
+import utils.debug as debug
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -31,7 +31,6 @@ class MainWindow(QMainWindow):
         self.culture_active = None
         self.cultures_selectionne = None
         self.table_modifiees = False
-        self.DEBUG = True
 
         init_menu(self)
 
@@ -118,7 +117,7 @@ class MainWindow(QMainWindow):
             lambda pos : menu_context_fert_milieu(self, pos)
         )
 
-        debug("Affichage de lbl_modifie")
+        debug.debug("Affichage de lbl_modifie")
         self.table_utiliser.itemChanged.connect(
             lambda item: mark_doses_modifiees(self, True)
         )
@@ -138,7 +137,7 @@ class MainWindow(QMainWindow):
         self.table_doses_ha.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table_doses_ha.setSelectionMode(QAbstractItemView.SingleSelection)
 
-        debug("Affichage de lbl_modifie")
+        debug.debug("Affichage de lbl_modifie")
         self.table_doses_ha.itemChanged.connect(
             lambda item: mark_doses_modifiees(self, True)
         )
@@ -215,13 +214,13 @@ class MainWindow(QMainWindow):
 
         # Charger les données
         self.fert_base = charger_fertilisants(self)
-        debug(f"Fertilisants chargés : {len(self.fert_base)}")
+        debug.debug(f"Fertilisants chargés : {len(self.fert_base)}")
         self.cultures = charger_cultures(self)
-        debug(f"Cultures chargées : {len(self.cultures)}")
+        debug.debug(f"Cultures chargées : {len(self.cultures)}")
 
         # Remplir les tableaux
         remplir_tableaux(self)
 
         self.cultures_selectionnee = None
 
-        init_raccourcis(self, self.DEBUG)
+        init_raccourcis(self)

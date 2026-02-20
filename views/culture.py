@@ -5,7 +5,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from utils.debug import debug
+import utils.debug as debug
 
 from paths import CULTURE_FILE
 
@@ -32,12 +32,12 @@ culture_selectionne_changed
 # ----------------------
 # Ajouter une culture
 def ajout_culture(window, culture=None, clavier=False):
-    debug("=== ajout_culture ===")
+    debug.debug("=== ajout_culture ===")
 
     if clavier:
-        debug("Depuis raccourcis clavier")
+        debug.debug("Depuis raccourcis clavier")
         
-    debug("Culture passée :", culture)
+    debug.debug("Culture passée :", culture)
 
     window.ajout_window = AjouterCultureWindow(culture)
 
@@ -45,10 +45,10 @@ def ajout_culture(window, culture=None, clavier=False):
     window.ajout_window.culture_ajoute.connect(
         lambda : recharger_cultures(window)
     )
-    debug("Signel culture_ajoute connecté → recharger_cultures")
+    debug.debug("Signel culture_ajoute connecté → recharger_cultures")
 
     window.ajout_window.show()
-    debug("Fenêtre AjouterCultureWindow affiché")
+    debug.debug("Fenêtre AjouterCultureWindow affiché")
 # ----------------------
 
 # ----------------------
@@ -65,11 +65,11 @@ def modifier_culture(window, nom):
 # ----------------------
 # Supprimer une culture
 def supprimer_culture(window, nom):
-    debug("=== supprimer_culture ===")
-    debug("Culture demandée :", nom)
+    debug.debug("=== supprimer_culture ===")
+    debug.debug("Culture demandée :", nom)
 
     if nom not in window.cultures:
-        debug("⛔ Culture introuvable")
+        debug.debug("⛔ Culture introuvable")
         return
 
     reply = QMessageBox.question(
@@ -79,51 +79,51 @@ def supprimer_culture(window, nom):
         QMessageBox.Yes | QMessageBox.No
     )
 
-    debug("Réponse utilisateur :", "Oui" if reply == QMessageBox.Yes else "Non")
+    debug.debug("Réponse utilisateur :", "Oui" if reply == QMessageBox.Yes else "Non")
 
     if reply != QMessageBox.Yes:
-        debug("Suppression annulée")
+        debug.debug("Suppression annulée")
         return
 
     del window.cultures[nom]
-    debug("Culture supprimée de la mémoire")
+    debug.debug("Culture supprimée de la mémoire")
 
     with open(CULTURE_FILE, "w", encoding="utf-8") as f:
         json.dump(window.cultures, f, indent=2, ensure_ascii=False)
-        debug("Fichier cultures réécrit")
+        debug.debug("Fichier cultures réécrit")
 
     remplir_tableaux(window)
-    debug("Tableaux rafraîchis après suppression culture")
+    debug.debug("Tableaux rafraîchis après suppression culture")
 # ----------------------
 
 # Ne pas autoriser sans validations de l'utilisateur le changement de culture sans enregistrement
 # ----------------------
 def culture_selectionnee_changed(window, row, column):
-    debug("\n=== culture_selectionnee_changed ===")
+    debug.debug("\n=== culture_selectionnee_changed ===")
 
     row = window.table_cultures.currentRow()
-    debug("Ligne sélectionnée :", row)
+    debug.debug("Ligne sélectionnée :", row)
 
     if row < 0:
-        debug("⛔ Aucune ligne sélectionnée")
+        debug.debug("⛔ Aucune ligne sélectionnée")
         return
 
     item = window.table_cultures.item(row, 0)
     if not item:
-        debug("⛔ Item culture inexistant")
+        debug.debug("⛔ Item culture inexistant")
         return
 
     nom_culture = item.text()
-    debug("Culture cliquée :", nom_culture)
-    debug("Culture active actuelle :", window.culture_active)
+    debug.debug("Culture cliquée :", nom_culture)
+    debug.debug("Culture active actuelle :", window.culture_active)
 
     if window.culture_active == nom_culture:
-        debug("↩️ Même culture → aucun changement")
+        debug.debug("↩️ Même culture → aucun changement")
         return
 
     # --- Vérification modifications non enregistrées ---
     if window.culture_active and window.table_modifiees:
-        debug("⚠️ Doses modifiées détectées pour :", window.culture_active)
+        debug.debug("⚠️ Doses modifiées détectées pour :", window.culture_active)
 
         reply = QMessageBox.question(
             window,
@@ -132,7 +132,7 @@ def culture_selectionnee_changed(window, row, column):
             QMessageBox.Yes | QMessageBox.Save | QMessageBox.Cancel
         )
 
-        debug(
+        debug.debug(
             "Choix utilisateur :",
             "Cancel" if reply == QMessageBox.Cancel else
             "Save" if reply == QMessageBox.Save else
@@ -140,11 +140,11 @@ def culture_selectionnee_changed(window, row, column):
         )
 
         if reply == QMessageBox.Cancel:
-            debug("❌ Changement de culture annulé")
+            debug.debug("❌ Changement de culture annulé")
             return
 
         if reply == QMessageBox.Save:
-            debug("💾 Enregistrement des doses avant changement")
+            debug.debug("💾 Enregistrement des doses avant changement")
             enregistrer_doses_culture(window)
             window.table_modifiees = False
 
@@ -162,11 +162,11 @@ def culture_selectionnee_changed(window, row, column):
     item.setFont(font)
 
     window.culture_active = nom_culture
-    debug("✅ Nouvelle culture active :", window.culture_active)
+    debug.debug("✅ Nouvelle culture active :", window.culture_active)
 
     culture = window.cultures.get(nom_culture, {})
     surface = culture.get("surface", 0)
-    debug("Surface culture :", surface)
+    debug.debug("Surface culture :", surface)
 
     window.lbl_culture_active.setText(nom_culture)
     window.lbl_dose_surface.setText(f"Doses pour la surface ({surface} m²)")
@@ -175,7 +175,7 @@ def culture_selectionnee_changed(window, row, column):
     # --- Chargement fertilisants utilisés ---
     window.table_utiliser.setRowCount(0)
     ferts_utilises = culture.get("fertilisants_utilises", [])
-    debug("Fertilisants utilisés enregistrés :", ferts_utilises)
+    debug.debug("Fertilisants utilisés enregistrés :", ferts_utilises)
 
     if ferts_utilises:
         has_doses = any(f.get("doses_ha") is not None for f in ferts_utilises)
@@ -198,7 +198,7 @@ def culture_selectionnee_changed(window, row, column):
                     "K": K
                 })
 
-                debug(f"🧮 {fert['nom']} → N:{N} P:{P} K:{K}")
+                debug.debug(f"🧮 {fert['nom']} → N:{N} P:{P} K:{K}")
 
             window.table_doses_ha.setRowCount(0)
             window.table_doses_surface.setRowCount(0)
@@ -207,9 +207,9 @@ def culture_selectionnee_changed(window, row, column):
             calculer_doses_surface(window, resultats, culture)
 
             window.table_modifiees = False
-            debug("🔁 Flag table_modifiees réinitialisé")
+            debug.debug("🔁 Flag table_modifiees réinitialisé")
             
-            debug("Suppression de l'affiche de lbl_modifie")
+            debug.debug("Suppression de l'affiche de lbl_modifie")
             mark_doses_modifiees(window, False)
             
         else:
@@ -219,7 +219,7 @@ def culture_selectionnee_changed(window, row, column):
             for fert in ferts_utilises:
                 fert_base = next((f for f in window.fert_base if f["nom"] == fert["nom"]), None)
                 if not fert_base:
-                    debug("⛔ Fertilisant introuvable dans base :", fert["nom"])
+                    debug.debug("⛔ Fertilisant introuvable dans base :", fert["nom"])
                     continue
 
                 row_util = window.table_utiliser.rowCount()
@@ -231,15 +231,15 @@ def culture_selectionnee_changed(window, row, column):
                 window.table_utiliser.setItem(row_util, 3, QTableWidgetItem(str(fert_base.get("K", 0))))
                 window.table_utiliser.setItem(row_util, 4, QTableWidgetItem(str(fert.get("doses_ha", 0))))
 
-                debug(f"➕ Fertilisant chargé : {fert['nom']} (ligne {row_util})")
+                debug.debug(f"➕ Fertilisant chargé : {fert['nom']} (ligne {row_util})")
 
             aligner_table(window.table_utiliser, "table_utiliser")
             
-            debug("Suppression de l'affiche de lbl_modifie")
+            debug.debug("Suppression de l'affiche de lbl_modifie")
             mark_doses_modifiees(window, False)
             
     else:
-        debug("ℹ️ Aucun fertilisant enregistré → chargement par défaut")
+        debug.debug("ℹ️ Aucun fertilisant enregistré → chargement par défaut")
         charger_ferts_pour_culture(window, nom_culture)
 
     

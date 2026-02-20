@@ -11,7 +11,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 import sys
 
-from utils.debug import debug
+import utils.debug as debug
 
 class AjouterFertilisantWindow(QWidget):
     fertilisant_ajoute = Signal()

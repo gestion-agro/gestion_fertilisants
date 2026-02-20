@@ -5,7 +5,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from utils.debug import debug
+import utils.debug as debug
 
 from tables.tables import aligner_table
 
@@ -21,15 +21,15 @@ vider_table_milieu
 # ----------------------
 # Remplissage des tableaux
 def remplir_tableaux(window):
-    debug("=== remplir_tableaux ===")
+    debug.debug("=== remplir_tableaux ===")
 
     # --------- Fertilisants ----------
-    debug("→ Remplissage tableau fertiliants")
+    debug.debug("→ Remplissage tableau fertiliants")
     window.table_fertilisants.setRowCount(0)
 
     # trier la liste des fertilisants par nom
     ferts_tries = sorted(window.fert_base, key=lambda x: x.get("nom", "").lower())
-    debug(f"{len(ferts_tries)} fertiliant(s) à afficher")
+    debug.debug(f"{len(ferts_tries)} fertiliant(s) à afficher")
 
     for i, fert in enumerate(ferts_tries):
         row = window.table_fertilisants.rowCount()
@@ -58,7 +58,7 @@ def remplir_tableaux(window):
 
         window.table_fertilisants.setCellWidget(row, 6, cell_widget)
 
-        debug(
+        debug.debug(
             f" [{row}] Fertilisant affiché :",
             nom,
             f"NPK=({fert.get('N')},{fert.get('P')},{fert.get('K')})",
@@ -66,11 +66,11 @@ def remplir_tableaux(window):
         )
 
     # --------- Cultures ----------
-    debug("→ Remplissage tableau cultures")
+    debug.debug("→ Remplissage tableau cultures")
     window.table_cultures.setRowCount(0)
 
     cultures_tries = sorted(window.cultures.items(), key=lambda x: x[0].lower())
-    debug(f"{len(cultures_tries)} culture(s) à afficher")
+    debug.debug(f"{len(cultures_tries)} culture(s) à afficher")
 
     # trier les cultures par nom
     for i, (nom, culture) in enumerate(cultures_tries):
@@ -83,7 +83,7 @@ def remplir_tableaux(window):
         window.table_cultures.setItem(row, 3, QTableWidgetItem(str(culture.get("K", 0))))
         window.table_cultures.setItem(row, 4, QTableWidgetItem(str(culture.get("surface", 10000))))
 
-        debug(
+        debug.debug(
             f"  [{row}] Culture affichée :",
             nom,
             f"NPK=({culture.get('N')},{culture.get('P')},{culture.get('K')})",
@@ -97,17 +97,17 @@ def remplir_tableaux(window):
     aligner_table(window.table_utiliser, "table_utiliser")
     aligner_table(window.table_fertilisants, "table_fertiliants")
 
-    debug("=== Fin remplir_tableaux ===")
+    debug.debug("=== Fin remplir_tableaux ===")
 # ----------------------
 
 # Remplissage des doses par ha dans table_doses_ha
 # ----------------------
 def remplir_table_doses_ha(window, resultats):
-    debug("\n=== remplir_table_doses_ha ===")
+    debug.debug("\n=== remplir_table_doses_ha ===")
     total_N = total_P = total_K = 0
 
     for r in resultats:
-        debug(f"Fertil. {r['nom']} → N={r['N']} P={r['P']} K={r['K']} doses_ha={r['doses_ha']}")
+        debug.debug(f"Fertil. {r['nom']} → N={r['N']} P={r['P']} K={r['K']} doses_ha={r['doses_ha']}")
         row = window.table_doses_ha.rowCount()
         window.table_doses_ha.insertRow(row)
 
@@ -124,7 +124,7 @@ def remplir_table_doses_ha(window, resultats):
     # Ligne TOTAL
     row = window.table_doses_ha.rowCount()
     window.table_doses_ha.insertRow(row)
-    debug(f"Ligne TOTAL → N={total_N} P={total_P} K={total_K}")
+    debug.debug(f"Ligne TOTAL → N={total_N} P={total_P} K={total_K}")
 
     window.table_doses_ha.setItem(row, 0, QTableWidgetItem("TOTAL"))
     window.table_doses_ha.setItem(row, 1, QTableWidgetItem(f"{total_N:.1f}"))
@@ -171,7 +171,7 @@ def _clear_table(window, table):
 # Vider tableau calculs
 # ----------------------
 def vider_table_calcul(window):
-    debug("Action : Vider calculs (résultats)")
+    debug.debug("Action : Vider calculs (résultats)")
 
     # Table dose ha
     _clear_table(window, window.table_doses_ha)
@@ -186,13 +186,13 @@ def vider_table_calcul(window):
         )
     
     window.table_modifiees = True
-    debug("Tableaux calculs supprimé -> table_modifier = True")
+    debug.debug("Tableaux calculs supprimé -> table_modifier = True")
 # ----------------------
 
 # Vider tableau fertilisant (tableu_utilise, table_doses_ha, table_doses_surface)
 # ----------------------
 def vider_table_milieux(window):
-    debug("Action : Vider tableaux (millieux)")
+    debug.debug("Action : Vider tableaux (millieux)")
 
     # Table fertiliants utilisés
     _clear_table(window, window.table_utiliser)
@@ -210,5 +210,5 @@ def vider_table_milieux(window):
         )
     
     window.table_modifiees = True
-    debug("Tableaux intermédiaires supprimé -> table_modifier = True")
+    debug.debug("Tableaux intermédiaires supprimé -> table_modifier = True")
 # ----------------------

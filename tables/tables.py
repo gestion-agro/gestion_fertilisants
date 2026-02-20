@@ -3,7 +3,7 @@
 
 from PySide6.QtCore import Qt
 
-from utils.debug import debug
+import utils.debug as debug
 
 """
 aligner_table
@@ -21,4 +21,4 @@ def aligner_table(table, nom="table"):
             else:
                 item.setTextAlignment(Qt.AlignVCenter | Qt.AlignRight)
 
-    debug(f"✅ Table '{nom}' alignée")
+    debug.debug(f"✅ Table '{nom}' alignée")
