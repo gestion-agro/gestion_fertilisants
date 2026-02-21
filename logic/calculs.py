@@ -5,6 +5,7 @@ import pulp
 import numpy as np
 import cvxpy as cp
 import math
+import tempfile
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -17,12 +18,31 @@ from ui.dialog_mode_calcul import ChoixModeCalcul
 from tables.tables import aligner_table
 from tables.remplissages import remplir_table_doses_ha
 
+import os
+import stat
+
 """
 calculer_doses
 calcul_auto
 calcul_strict
 calculer_does_surface
 """
+
+def make_cbc_executable():
+    # Chemin du binaire CBC dans l'exécutable PyInstaller
+    solverdir = os.path.join(os.path.dirname(pulp.__file__), "solverdir")
+    cbc_path = os.path.join(solverdir, "cbc", "linux", "i64", "cbc")
+
+    if os.path.exists(cbc_path):
+        # ajouter les droits d'exécution
+        st = os.stat(cbc_path)
+        os.chmod(cbc_path, st.st_mode | stat.S_IEXEC)
+        # print pour debug
+        print(f"CBC binaire rendu exécutable : {cbc_path}")
+        return cbc_path
+    else:
+        print("⚠️ CBC non trouvé, vérifier l'inclusion du solverdir!")
+        return None
 
 # Base pour envoyer vers calcul auto ou strict
 # ----------------------
@@ -85,6 +105,7 @@ def calculer_doses(window):
 # ----------------------
 
 def calcul_auto(window, Nb, Pb, Kb):
+    os.environ["TMPDIR"] = tempfile.gettempdir()
     debug.debug("\n=== calcul_auto ===")
 
     window.fertilisants_autorises = []
@@ -152,7 +173,15 @@ def calcul_auto(window, Nb, Pb, Kb):
     debug.debug("Limite nb fertilisants =", max_fertilisants)
 
     debug.debug("=== Solveur CBC ===")
-    prob.solve(pulp.PULP_CBC_CMD(msg=debug.DEBUG))
+    
+    cbc_path = make_cbc_executable()
+
+    prob.solve(
+        pulp.COIN_CMD(
+            path=cbc_path,
+            msg=debug.DEBUG
+        )
+    )
 
     debug.debug("Status solveur :", pulp.LpStatus[prob.status])
 
