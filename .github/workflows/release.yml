@@ -179,8 +179,6 @@ jobs:
             --icon-file icon.png \
             --output appimage
 
-          mv Gestion_Fertilisant-x86_64.AppImage Gestion_Fertilisant_${VERSION}_x86_64.AppImage
-
       - name: Check dist
         run: ls -l dist/
 
