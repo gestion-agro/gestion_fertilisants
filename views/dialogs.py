@@ -1,5 +1,7 @@
 # Licensed under PolyForm Noncommercial 1.0.0
 # © 2026 Clément THIEULEUX
+import os
+import sys
 
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -10,6 +12,7 @@ import utils.debug as debug
 ouvrir_parametres
 redemarrer_debug
 afficher_aide
+get_version
 afficher_apropos
 """
 
@@ -43,12 +46,33 @@ def afficher_aide(window):
     QMessageBox.information(window, "Aide", "Aide à la gestion de fertilisants")
 # ----------------------
 
+# Get version
+# ----------------------
+def get_version():
+    try:
+        if getattr(sys, 'frozen', False):
+            # PyInstaller
+            base_path = sys._MEIPASS
+        else:
+            # Script Python normal
+            base_path = os.path.abspath(".")
+
+        version_file = os.path.join(base_path, "version.txt")
+
+        with open(version_file, "r") as f:
+            return f.read().strip()
+
+    except Exception as e:
+        print("Erreur lecture version:", e)
+        return "Version inconnue"
+
+
 # A propos
 # ----------------------
 def afficher_apropos(window):
     QMessageBox.information(
         window,
         "À propos",
-        "Gestion Fertiliant\nVersion 2.1.1\n©Clément THIEULEUX"
+        f"Gestion Fertiliant\nVersion {get_version()}\n©Clément THIEULEUX"
     )
 # ----------------------
