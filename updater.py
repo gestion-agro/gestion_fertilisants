@@ -32,17 +32,27 @@ def get_current_version():
 def check_update():
     """
     Vérifie la dernière release GitHub.
-    Retourne (latest_version, download_url) si update disponible, sinon (None, None)
+    Retourne (latest_version, download_url) si update disponible, sinon (None, None).
+    Lève une ConnectionError si pas de réseau.
     """
     url = f"https://api.github.com/repos/{REPO}/releases/latest"
-    r = requests.get(url).json()
+ 
+    try:
+        r = requests.get(url, timeout=5).json()
+    except requests.exceptions.ConnectionError:
+        raise ConnectionError("Impossible de contacter GitHub. Vérifiez votre connexion internet.")
+    except requests.exceptions.Timeout:
+        raise ConnectionError("La vérification a expiré. Vérifiez votre connexion internet.")
+    except Exception as e:
+        raise ConnectionError(f"Erreur réseau inattendue : {e}")
+ 
     latest_version = r["tag_name"].lstrip("v")
     current_version = get_current_version()
-
+ 
     if version.parse(latest_version) > version.parse(current_version):
         asset_url = r["assets"][0]["browser_download_url"]
         return latest_version, asset_url
-
+ 
     return None, None
 
 def run_update(download_url):

@@ -118,10 +118,16 @@ def init_menu(window):
     debug.debug("Menu initialisé")
 
 def check_updates_ui():
-    version, url = check_update()
+    try:
+        version, url = check_update()
+    except ConnectionError as e:
+        QMessageBox.warning(None, "Pas de connexion", str(e))
+        return
+ 
     if not version:
         QMessageBox.information(None, "Info", "Déjà à jour")
         return
+ 
     reply = QMessageBox.question(
         None,
         "Mise à jour",
@@ -129,4 +135,5 @@ def check_updates_ui():
     )
     if reply == QMessageBox.Yes:
         run_update(url)
+ 
 
