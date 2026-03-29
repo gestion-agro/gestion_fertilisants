@@ -5,7 +5,7 @@
 
 # False = Pas débug
 # True = Débug
-DEBUG = False
+DEBUG = True
 
 def set_debug(value: bool):
     global DEBUG
