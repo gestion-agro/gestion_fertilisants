@@ -6,6 +6,8 @@ import traceback
 from db import get_connection
 import utils.debug as debug
 
+import re
+
 CERTIPHYTO_TYPES = [
     "CON",
     "DESA",
@@ -74,6 +76,9 @@ def peut(user: dict, droit: str) -> bool:
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
+def verifier_cipp(cipp):
+    pattern = r"^[A-Z]{2}-\d{4}-\d{6}$"
+    return bool(re.match(pattern, cipp))
 
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
