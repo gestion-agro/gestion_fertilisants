@@ -7,8 +7,6 @@ from PySide6.QtGui import *
 
 import utils.debug as debug
 
-from paths import FERT_FILE
-
 from ui.ajouter_fertilisant import AjouterFertilisantWindow
 
 from logic.chargement import recharger_fertilisants
@@ -17,7 +15,6 @@ from tables.remplissages import remplir_tableaux
 
 from views.fertilisants_utilises import ajouter_fert_utiliser, mark_doses_modifiees
 
-import json
 
 """ 
 ajout_fert
@@ -68,36 +65,34 @@ def modifier_fert(window, nom):
 # ----------------------
 # Supprimer un fertiliant
 def supprimer_fert(window, nom):
+    from db import get_connection
+    import traceback
+ 
     debug.debug("=== supprimer_fert ===")
-    debug.debug("Fertilisant demandé :", nom)
-
     fert = next((f for f in window.fert_base if f["nom"] == nom), None)
     if not fert:
         debug.debug("⛔ Fertilisant introuvable")
         return
-
+ 
     reply = QMessageBox.question(
-        window,
-        "Confirmation",
+        window, "Confirmation",
         f"Voulez-vous vraiment supprimer le fertilisant « {nom} » ?",
-        QMessageBox.Yes | QMessageBox.No
-    )
-
-    debug.debug("Réponse utilisateur :", "Oui" if reply == QMessageBox.Yes else "Non")
-
+        QMessageBox.Yes | QMessageBox.No)
     if reply != QMessageBox.Yes:
-        debug.debug("Suppression annulée")
         return
-
-    window.fert_base = [f for f in window.fert_base if f["nom"] != nom]
-    debug.debug("Fertilisant supprimé de la mémoire")
-
-    with open(FERT_FILE, "w", encoding="utf-8") as f:
-        json.dump(window.fert_base, f, indent=2, ensure_ascii=False)
-        debug.debug("Fichier fertilisants réécrit")
-
-    remplir_tableaux(window)
-    debug.debug("Tableaux rafraîchis après suppression fertilisant")
+ 
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM fertilisants WHERE id = ?", (fert["id"],))
+        conn.commit()
+        cur.close()
+        debug.debug(f"[fertilisant] '{nom}' supprimé de la BDD")
+        from logic.chargement import recharger_fertilisants
+        recharger_fertilisants(window)
+    except Exception as e:
+        traceback.print_exc()
+        QMessageBox.critical(window, "Erreur", str(e))
 # ----------------------
 
 # Au double clique d'un fertilisant dans table_fertilisants -> ajout dans table_utilise

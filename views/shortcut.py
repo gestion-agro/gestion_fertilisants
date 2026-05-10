@@ -38,7 +38,7 @@ def init_raccourcis(window):
         QKeySequence("Ctrl+S"),
         window
     ).activated.connect(
-        lambda: enregistrer_doses_culture(window, True)
+        lambda: enregistrer_doses_culture(window)
     )
 
     # Nouveau fertilisant

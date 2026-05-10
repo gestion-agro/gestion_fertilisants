@@ -1,19 +1,13 @@
 # Licensed under PolyForm Noncommercial 1.0.0
 # © 2026 Clément THIEULEUX
 
-import json
-from pathlib import Path
-
-from paths import CULTURE_FILE
-
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFormLayout,
-    QLineEdit, QPushButton, QMessageBox,
-    QHBoxLayout, QComboBox, QTableWidgetItem,
-    QTableWidget, QLabel
-)
-from PySide6.QtGui import QDoubleValidator, QIntValidator
+from PySide6.QtWidgets import *
+from PySide6.QtGui import QDoubleValidator
+
+from db import get_connection
+import utils.debug as debug
+import traceback
 
 
 class AjouterCultureWindow(QWidget):
@@ -21,56 +15,47 @@ class AjouterCultureWindow(QWidget):
 
     def __init__(self, culture=None):
         super().__init__()
-        self.setWindowTitle("Ajouter une culture" if culture is None else "Modifier une culture")
-        self.resize(300, 200)
+        self.editing = culture
+        self.setWindowTitle(
+            "Modifier une culture" if culture else "Ajouter une culture")
+        self.resize(320, 220)
+        self._build_ui()
 
-        self.editing = culture  # stocker la culture à modifier (ou None)
-
-        # validateurs
-        validateur_NPK = QDoubleValidator(0.0, 100.0, 1, self)
-
-        # layout principal
+    def _build_ui(self):
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
-        # champs
+        val_npk     = QDoubleValidator(0.0, 9999.0, 1, self)
+        val_surface = QDoubleValidator(0.0, 999999.0, 1, self)
+
         self.nom_input = QLineEdit()
-        self.n_input = QLineEdit()
-        self.p_input = QLineEdit()
-        self.k_input = QLineEdit()
-        self.surface = QLineEdit()
+        self.n_input   = QLineEdit(); self.n_input.setValidator(val_npk)
+        self.p_input   = QLineEdit(); self.p_input.setValidator(val_npk)
+        self.k_input   = QLineEdit(); self.k_input.setValidator(val_npk)
+        self.surface   = QLineEdit(); self.surface.setValidator(val_surface)
+        self.surface.setPlaceholderText("en m²")
 
-        # validateurs
-        self.n_input.setValidator(validateur_NPK)
-        self.p_input.setValidator(validateur_NPK)
-        self.k_input.setValidator(validateur_NPK)
-
-        form.addRow("Nom :", self.nom_input)
-        form.addRow("N :", self.n_input)
-        form.addRow("P :", self.p_input)
-        form.addRow("K :", self.k_input)
-        form.addRow("Surface (en m²) :", self.surface)
-
+        form.addRow("Nom :",         self.nom_input)
+        form.addRow("N :",           self.n_input)
+        form.addRow("P :",           self.p_input)
+        form.addRow("K :",           self.k_input)
+        form.addRow("Surface (m²) :", self.surface)
         layout.addLayout(form)
 
-        # préremplissage si on modifie
-        if culture:
-            self.nom_input.setText(culture.get("nom", ""))
-            self.n_input.setText(str(culture.get("N", "")))
-            self.p_input.setText(str(culture.get("P", "")))
-            self.k_input.setText(str(culture.get("K", "")))
-            self.surface.setText(str(culture.get("surface", "")))
+        # Pré-remplissage si modification
+        if self.editing:
+            self.nom_input.setText(self.editing.get("nom", ""))
+            self.n_input.setText(str(self.editing.get("N", "")))
+            self.p_input.setText(str(self.editing.get("P", "")))
+            self.k_input.setText(str(self.editing.get("K", "")))
+            self.surface.setText(str(self.editing.get("surface", "")))
 
-        # bouton enregistrer
-        self.btn_save = QPushButton("Enregistrer")
-        self.btn_save.clicked.connect(self.enregistrer)
-        layout.addWidget(self.btn_save)
-
-        # Quiter
-        btn_quitter = QPushButton("Annuler")
-        btn_quitter.clicked.connect(self.quitter)
-        layout.addWidget(btn_quitter)
-        # =====================
+        btn_save = QPushButton("Enregistrer")
+        btn_save.clicked.connect(self.enregistrer)
+        btn_cancel = QPushButton("Annuler")
+        btn_cancel.clicked.connect(self.close)
+        layout.addWidget(btn_save)
+        layout.addWidget(btn_cancel)
 
     def enregistrer(self):
         nom = self.nom_input.text().strip()
@@ -79,64 +64,53 @@ class AjouterCultureWindow(QWidget):
             return
 
         try:
-            n = round(float(self.n_input.text().replace(",", ".")), 1)
-            p = round(float(self.p_input.text().replace(",", ".")), 1)
-            k = round(float(self.k_input.text().replace(",", ".")), 1)
+            n       = round(float(self.n_input.text().replace(",", ".")), 1)
+            p       = round(float(self.p_input.text().replace(",", ".")), 1)
+            k       = round(float(self.k_input.text().replace(",", ".")), 1)
             surface = round(float(self.surface.text().replace(",", ".")), 1)
         except ValueError:
-            QMessageBox.warning(self, "Erreur", "Tous les champs doivent être des nombres valides.")
+            QMessageBox.warning(self, "Erreur",
+                "Tous les champs numériques doivent être valides.")
             return
 
-        # lecture du fichier
-        cultures = {}
-        if CULTURE_FILE.exists():
-            with open(CULTURE_FILE, "r", encoding="utf-8") as f:
-                cultures = json.load(f)
-                if not isinstance(cultures, dict):
-                    cultures = {}
-
-        if self.editing:  # modification
+        if self.editing:
             reply = QMessageBox.question(
-                self,
-                "Confirmation",
-                f"Voulez-vous modifier la culture « {self.editing['nom']} » ?",
-                QMessageBox.Yes | QMessageBox.No
-            )
+                self, "Confirmation",
+                f"Modifier « {self.editing['nom']} » ?",
+                QMessageBox.Yes | QMessageBox.No)
             if reply != QMessageBox.Yes:
                 return
-            # supprimer l'ancienne culture
-            if self.editing['nom'] in cultures:
-                del cultures[self.editing['nom']]
-        else:  # ajout
-            if nom in cultures:
-                QMessageBox.warning(self, "Erreur", "Cette culture existe déjà.")
-                return
 
-        # ajouter/modifier la culture
-        cultures[nom] = {
-            "N": n,
-            "P": p,
-            "K": k,
-            "surface": surface
-        }
+        try:
+            conn = get_connection()
+            cur  = conn.cursor()
 
-        # sauvegarde
-        with open(CULTURE_FILE, "w", encoding="utf-8") as f:
-            json.dump(cultures, f, indent=2, ensure_ascii=False)
+            if self.editing:
+                cur.execute("""
+                    UPDATE cultures
+                    SET nom=?, besoin_n=?, besoin_p=?, besoin_k=?, surface=?
+                    WHERE id=?
+                """, (nom, n, p, k, surface, self.editing["id"]))
+            else:
+                cur.execute(
+                    "SELECT COUNT(*) FROM cultures WHERE nom = ?", (nom,))
+                if cur.fetchone()[0] > 0:
+                    QMessageBox.warning(self, "Erreur",
+                        "Cette culture existe déjà.")
+                    cur.close()
+                    return
 
-        # signal pour rafraîchir la page principale
-        self.culture_ajoute.emit()
+                cur.execute("""
+                    INSERT INTO cultures (nom, besoin_n, besoin_p, besoin_k, surface)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (nom, n, p, k, surface))
 
-        # fermer la fenêtre
-        self.close()
+            conn.commit()
+            cur.close()
+            debug.debug(f"[culture] '{nom}' sauvegardée en BDD")
+            self.culture_ajoute.emit()
+            self.close()
 
-
-    # Fermeture
-    def quitter(self):
-        #ferme la fenetre
-        self.close()
-    # =====================
-
-
-        
-        
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Erreur BDD", str(e))

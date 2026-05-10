@@ -345,9 +345,8 @@ class AideDecision(QWidget):
                 FROM ppp_usages WHERE id = ?
             """, (usage_id,))
             usage = cur.fetchone()
-            cur.close()
-
             if not usage:
+                cur.close()
                 return
 
             self._produit_courant = prod
@@ -384,12 +383,15 @@ class AideDecision(QWidget):
             # Vérification homologation culture + bio-agresseur
             culture_sel = self.combo_culture.currentData()
             bio_agr_sel = self.combo_bio_agr.currentData()
+            cur.close()
             if culture_sel and bio_agr_sel:
-                cur.execute("""
+                cur2 = conn.cursor()
+                cur2.execute("""
                     SELECT COUNT(*) FROM ppp_usages
                     WHERE produit_id = ? AND culture = ? AND bio_agresseur = ?
                 """, (produit_id, culture_sel, bio_agr_sel))
-                homol_count = cur.fetchone()[0]
+                homol_count = cur2.fetchone()[0]
+                cur2.close()
                 if homol_count > 0:
                     self.lbl_d_homol.setText(
                         f"✓ Homologué pour {culture_sel} / {bio_agr_sel}")

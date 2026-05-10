@@ -47,6 +47,11 @@ versionnee_github.txt
 # VScode
 gestion_fertilisants.code-workspace
 
+#db
+gestion_fertilisants.db-shm
+gestion_fertilisants.db-wal
+gestion_fertilisants.db
+
 AppDir/
 deb_package/
 linuxdeploy/

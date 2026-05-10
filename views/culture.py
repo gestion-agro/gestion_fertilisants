@@ -7,7 +7,6 @@ from PySide6.QtGui import *
 
 import utils.debug as debug
 
-from paths import CULTURE_FILE
 
 from ui.ajouter_culture import AjouterCultureWindow
 
@@ -20,7 +19,6 @@ from tables.tables import aligner_table
 
 from views.fertilisants_utilises import mark_doses_modifiees
 
-import json
 
 """ 
 ajout_culture
@@ -65,35 +63,25 @@ def modifier_culture(window, nom):
 # ----------------------
 # Supprimer une culture
 def supprimer_culture(window, nom):
+    from db import get_connection
+    from logic.enregistrement import supprimer_culture as supprimer_culture_db
+    import traceback
+ 
     debug.debug("=== supprimer_culture ===")
-    debug.debug("Culture demandée :", nom)
-
-    if nom not in window.cultures:
+    culture = window.cultures.get(nom)
+    if not culture:
         debug.debug("⛔ Culture introuvable")
         return
-
+ 
     reply = QMessageBox.question(
-        window,
-        "Confirmation",
+        window, "Confirmation",
         f"Voulez-vous vraiment supprimer la culture « {nom} » ?",
-        QMessageBox.Yes | QMessageBox.No
-    )
-
-    debug.debug("Réponse utilisateur :", "Oui" if reply == QMessageBox.Yes else "Non")
-
+        QMessageBox.Yes | QMessageBox.No)
     if reply != QMessageBox.Yes:
-        debug.debug("Suppression annulée")
         return
-
-    del window.cultures[nom]
-    debug.debug("Culture supprimée de la mémoire")
-
-    with open(CULTURE_FILE, "w", encoding="utf-8") as f:
-        json.dump(window.cultures, f, indent=2, ensure_ascii=False)
-        debug.debug("Fichier cultures réécrit")
-
-    remplir_tableaux(window)
-    debug.debug("Tableaux rafraîchis après suppression culture")
+ 
+    supprimer_culture_db(window, nom)
+    debug.debug(f"[culture] '{nom}' supprimée de la BDD")
 # ----------------------
 
 # Ne pas autoriser sans validations de l'utilisateur le changement de culture sans enregistrement
