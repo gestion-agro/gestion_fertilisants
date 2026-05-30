@@ -229,6 +229,7 @@ jobs:
           --name Gestion_Fertilisant_${VERSION}_windows.exe \
           --add-data 'version.txt;.' \
           --hidden-import pulp \
+          --hidden-import charset_normalizer \
           --collect-all cvxpy \
           --collect-all osqp \
           --collect-all ecos \
