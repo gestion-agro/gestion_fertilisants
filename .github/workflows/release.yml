@@ -8,10 +8,14 @@ on:
 permissions:
   contents: write
 
+env:
+  PYTHON_VERSION: "3.11"
+
 jobs:
-  # ======================
-  # LINUX: .deb + AppImage
-  # ======================
+
+# ======================
+# LINUX
+# ======================
   build-linux:
     runs-on: ubuntu-latest
     container:
@@ -22,256 +26,117 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ----------------------
-      # Install deps
-      # ----------------------
-      - name: Install deps
+      - name: Install dependencies
         run: |
           apt update
           apt install -y python3 python3-venv python3-pip build-essential \
-          fakeroot dpkg-dev libglib2.0-0 wget xz-utils imagemagick file
+          wget xz-utils file imagemagick
 
-          python3 -m venv /tmp/venv
-          . /tmp/venv/bin/activate
+          python3 -m venv venv
+          . venv/bin/activate
 
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller PySide6 bcrypt requests
-          pip install osqp ecos scs cvxpy --no-cache-dir
+          pip install pyinstaller PySide6 bcrypt requests charset-normalizer
 
-          # icon fix
-          if [ -f icon.ico ]; then
-            convert icon.ico -resize 256x256 icon.png
-          fi
-
-      # ----------------------
-      # Build binary
-      # ----------------------
-      - name: Build binary
+      - name: Build Linux binary
         run: |
+          . venv/bin/activate
           VERSION=${VERSION#v}
-          . /tmp/venv/bin/activate
-
-          PULP_DIR=$(python -c "import pulp, os; print(os.path.dirname(pulp.__file__))")
-          export CVXPY_BACKEND_DIR=$(dirname $(python -c "import osqp; print(osqp.__file__)"))
 
           pyinstaller \
             --onefile app.py \
             --name Gestion_Fertilisant_${VERSION}_linux \
-            --add-data 'version.txt:.' \
-            --add-data "${PULP_DIR}/solverdir:pulp/solverdir" \
-            --hidden-import pulp \
+            --add-data "version.txt:." \
             --hidden-import cvxpy \
-            --hidden-import cvxpy.constraints.utilities \
-            --hidden-import cvxpy.reductions \
-            --hidden-import osqp \
-            --hidden-import ecos \
-            --hidden-import scs \
-            --hidden-import tables._comp_lzo \
-            --hidden-import tables._comp_bzip2 \
-            --hidden-import pycparser.lextab \
-            --hidden-import pycparser.yacctab \
-            --hidden-import scipy.special._cdflib \
-            --collect-all pulp \
             --collect-all cvxpy \
             --collect-all osqp \
             --collect-all ecos \
-            --collect-all scs \
-            --exclude-module matplotlib \
-            --exclude-module numpy.tests \
-            --exclude-module scipy.tests
+            --collect-all scs
 
-          mv dist/Gestion_Fertilisant_${VERSION}_linux dist/Gestion_Fertilisant_${VERSION}_x86_64
+      - name: Prepare artifacts
+        run: ls -R dist/
 
-      - name: Check dist
-        run: ls -l dist/
-
-      # ----------------------
-      # Build .deb
-      # ----------------------
-      - name: Build deb
-        run: |
-          VERSION=${VERSION#v}
-          mkdir -p deb_package/DEBIAN
-          mkdir -p deb_package/usr/local/bin
-          mkdir -p deb_package/usr/share/applications
-          mkdir -p deb_package/usr/share/icons/hicolor/256x256/apps
-
-          cp dist/Gestion_Fertilisant_${VERSION}_x86_64 deb_package/usr/local/bin/Gestion_Fertilisant
-          cp icon.png deb_package/usr/share/icons/hicolor/256x256/apps/Gestion_Fertilisant.png || true
-
-          cat > deb_package/usr/share/applications/Gestion_Fertilisant.desktop <<EOF
-          [Desktop Entry]
-          Name=Gestion Fertilisant
-          Exec=/usr/local/bin/Gestion_Fertilisant
-          Icon=Gestion_Fertilisant
-          Terminal=false
-          Type=Application
-          Categories=Utility;
-          EOF
-
-          cat > deb_package/DEBIAN/control <<EOF
-          Package: gestion-fertilisant
-          Version: ${VERSION}
-          Section: utils
-          Priority: optional
-          Architecture: amd64
-          Maintainer: Clement
-          Description: Gestion Fertilisant
-          EOF
-
-          dpkg-deb --build deb_package Gestion_Fertilisant_${VERSION}_amd64.deb
-
-      - name: Check dist
-        run: ls -l dist/
-
-      # ----------------------
-      # Build AppImage
-      # ----------------------
-      - name: Build AppImage
-        run: |
-          VERSION=${VERSION#v}
-          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage
-
-          # extract instead of mount for CI
-          ./linuxdeploy-x86_64.AppImage --appimage-extract
-          mv squashfs-root linuxdeploy
-
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          mkdir -p AppDir/usr/share/metainfo
-
-          # Copy binary and icon
-          cp dist/Gestion_Fertilisant_${VERSION}_x86_64 AppDir/usr/bin/Gestion_Fertilisant
-          cp icon.png AppDir/usr/share/icons/hicolor/256x256/apps/Gestion_Fertilisant.png || true
-
-          # Desktop file
-          cat > AppDir/usr/share/applications/Gestion_Fertilisant.desktop <<EOF
-          [Desktop Entry]
-          Name=Gestion Fertilisant
-          Exec=Gestion_Fertilisant
-          Icon=Gestion_Fertilisant
-          Terminal=false
-          Type=Application
-          Categories=Utility;
-          EOF
-
-          # Minimal AppStream metadata
-          cat > AppDir/usr/share/metainfo/Gestion_Fertilisant.appdata.xml <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <component type="desktop">
-            <id>gestion-fertilisant.desktop</id>
-            <name>Gestion Fertilisant</name>
-            <summary>Gestion Fertilisant</summary>
-            <description>Application de gestion de fertilisants</description>
-            <license>GPL-3.0-or-later</license>
-            <url type="homepage">https://example.com</url>
-            <developer_name>Clement</developer_name>
-          </component>
-          EOF
-
-          # Build AppImage
-          ./linuxdeploy/AppRun \
-            --appdir AppDir \
-            --desktop-file AppDir/usr/share/applications/Gestion_Fertilisant.desktop \
-            --icon-file icon.png \
-            --output appimage
-
-      - name: Check dist
-        run: ls -l dist/
-
-      - name: Upload Linux
+      - name: Upload Linux build
         uses: actions/upload-artifact@v4
         with:
           name: linux
-          path: |
-            dist/Gestion_Fertilisant_*_x86_64
-            *.deb
-            *.AppImage
+          path: dist/*
 
-  # ======================
-  # WINDOWS
-  # ======================
+
+# ======================
+# WINDOWS + INNO SETUP
+# ======================
   build-windows:
     runs-on: windows-latest
     env:
       VERSION: ${{ github.ref_name }}
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller bcrypt PySide6 requests charset-normalizer
+          pip install osqp ecos scs
+
+      - name: Build Windows executable
+        shell: bash
+        run: |
+          VERSION=${VERSION#v}
+
+          pyinstaller \
+            --onefile app.py \
+            --name Gestion_Fertilisant_windows \
+            --add-data "version.txt;." \
+            --collect-all cvxpy \
+            --collect-all osqp \
+            --collect-all ecos \
+            --collect-all scs
 
       - name: Install Inno Setup
         run: choco install innosetup -y
 
-      - name: Build installer
+      - name: Build Windows installer
+        shell: powershell
         run: |
-        "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\installer.iss
 
-      - name: Upload installer
+      - name: Upload Windows exe
         uses: actions/upload-artifact@v4
         with:
-          name: installer
+          name: windows-exe
+          path: dist/*.exe
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
           path: Output/*.exe
 
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
 
-          pip install pyinstaller bcrypt PySide6 requests
-          pip install charset-normalizer
-
-          # Solveurs CVXPY
-          pip install osqp ecos scs
-
-      - name: Check CVXPY solveur
-        run: |
-            python -c "import cvxpy as cp; print(cp.installed_solvers())"
-
-      - name: Build exe
-        shell: bash
-        run: |
-          VERSION=${VERSION#v}
-          pyinstaller \
-          --onefile app.py \
-          --name Gestion_Fertilisant_${VERSION}_windows.exe \
-          --add-data 'version.txt;.' \
-          --hidden-import pulp \
-          --hidden-import charset_normalizer \
-          --collect-all cvxpy \
-          --collect-all osqp \
-          --collect-all ecos \
-          --collect-all scs
-          
-      - name: Check dist
-        run: ls -l dist/
-
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows
-          path: dist/Gestion_Fertilisant_*_windows.exe
-
-  # ======================
-  # MACOS
-  # ======================
+# ======================
+# MACOS
+# ======================
   build-macos:
     runs-on: macos-latest
     env:
       VERSION: ${{ github.ref_name }}
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install -r requirements.txt
@@ -281,29 +146,26 @@ jobs:
         shell: bash
         run: |
           VERSION=${VERSION#v}
-          pyinstaller \
-          --onefile app.py \
-          --name Gestion_Fertilisant_${VERSION}_macos \
-          --add-data 'version.txt:.' \
-          --add-data "$(python3 -c 'import pulp,os;print(os.path.dirname(pulp.__file__))')/solverdir:pulp/solverdir" \
-          --hidden-import pulp \
-          --hidden-import cvxpy \
-          --hidden-import osqp \
-          --hidden-import ecos \
-          --hidden-import scs
-          
-      - name: Check dist
-        run: ls -l dist/
 
-      - name: Upload macOS artifact
+          pyinstaller \
+            --onefile app.py \
+            --name Gestion_Fertilisant_${VERSION}_macos \
+            --add-data "version.txt:." \
+            --collect-all cvxpy \
+            --collect-all osqp \
+            --collect-all ecos \
+            --collect-all scs
+
+      - name: Upload macOS build
         uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: dist/Gestion_Fertilisant_*_macos
+          path: dist/*
 
-  # ======================
-  # RELEASE
-  # ======================
+
+# ======================
+# RELEASE
+# ======================
   release:
     runs-on: ubuntu-latest
     needs: [build-linux, build-windows, build-macos]
@@ -316,7 +178,7 @@ jobs:
       - name: Show files
         run: ls -R release
 
-      - name: Upload to GitHub Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: release/**/*
