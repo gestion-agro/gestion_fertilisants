@@ -23,6 +23,7 @@ DROITS = {
         "carnet_lecture":  True,
         "carnet_ecriture": False,
         "carnet_amm_only": False,
+        "peut_decider":     True,
     },
     "DESA": {
         "catalogue":       True,
@@ -30,6 +31,7 @@ DROITS = {
         "carnet_lecture":  True,
         "carnet_ecriture": True,
         "carnet_amm_only": False,
+        "peut_decider":     True,
     },
     "DENSA": {
         "catalogue":       True,
@@ -37,6 +39,7 @@ DROITS = {
         "carnet_lecture":  True,
         "carnet_ecriture": True,
         "carnet_amm_only": False,
+        "peut_decider":     True,
     },
     "OPE": {
         "catalogue":       True,
@@ -44,6 +47,7 @@ DROITS = {
         "carnet_lecture":  True,
         "carnet_ecriture": True,
         "carnet_amm_only": True,
+        "peut_decider":     False,
     },
     "MV/V": {
         "catalogue":       False,
@@ -51,6 +55,7 @@ DROITS = {
         "carnet_lecture":  False,
         "carnet_ecriture": False,
         "carnet_amm_only": False,
+        "peut_decider":     False,
     },
     None: {
         "catalogue":       True,
@@ -58,6 +63,7 @@ DROITS = {
         "carnet_lecture":  True,
         "carnet_ecriture": False,
         "carnet_amm_only": False,
+        "peut_decider":     False,
     },
 }
 

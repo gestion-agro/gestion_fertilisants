@@ -10,4 +10,4 @@ git tag vx.x.x // creer le tag de version
 git push origin vx.x.x // envoyer les fichiers vers la version
 
 
-VERSION=5.3.1 && COMMIT="Fix workflow bcrypt" && echo $VERSION > version.txt && git add . && git commit -m "$COMMIT" && git push && git tag v$VERSION && git push origin v$VERSION && ./deb.sh $VERSION
+VERSION=5.3.1, && COMMIT="Fix workflow bcrypt" && echo $VERSION > version.txt && git add . && git commit -m "$COMMIT" && git push && git tag v$VERSION && git push origin v$VERSION && ./deb.sh $VERSION

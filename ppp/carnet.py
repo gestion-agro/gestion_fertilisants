@@ -200,9 +200,9 @@ class CarnetPage(QWidget):
         self.current_user = current_user
         self._role = current_user.get("certiphyto_type")
         # Peut décider = créer une décision de traitement
-        self._is_decideur = peut(current_user, "peut_decider") or                             current_user.get("role") == "admin"
+        self._is_decideur = current_user.get("certiphyto_type") in ("CON", "DESA", "DENSA") or                             current_user.get("role") == "admin"
         # Peut appliquer = confirmer/exécuter un traitement
-        self._is_applicateur = peut(current_user, "peut_appliquer") or                                current_user.get("role") == "admin"
+        self._is_applicateur = peut(current_user, "carnet_ecriture") or                                current_user.get("role") == "admin"
         # OPE = peut appliquer mais ne décide pas
         self._is_ope = self._is_applicateur and not self._is_decideur
         self._build_ui()
@@ -802,6 +802,9 @@ class DialogDecision(QDialog):
         self.current_user = current_user
         self.setWindowTitle("Nouvelle décision de traitement")
         self.setMinimumWidth(520)
+        from views.login import peut
+        self._peut_appliquer = peut(current_user, "carnet_ecriture") or current_user.get("role") == "admin"
+        self.prod_info = {}
         self._build_ui()
 
     def _build_ui(self):
@@ -1324,7 +1327,7 @@ class DialogDecisionPreRempli(QDialog):
         layout.addWidget(form_group)
 
         # Option "appliquer maintenant" pour DESA/DENSA uniquement
-        self._peut_appliquer = peut(self.current_user, "peut_appliquer") or                                self.current_user.get("role") == "admin"
+        self._peut_appliquer = peut(self.current_user, "carnet_ecriture") or                                self.current_user.get("role") == "admin"
         if self._peut_appliquer:
             sep = QFrame(); sep.setFrameShape(QFrame.HLine)
             layout.addWidget(sep)

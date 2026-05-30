@@ -55,3 +55,5 @@ gestion_fertilisants.db
 AppDir/
 deb_package/
 linuxdeploy/
+
+image/
