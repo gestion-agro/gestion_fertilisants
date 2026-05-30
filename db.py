@@ -3,9 +3,20 @@
 
 import sqlite3
 import os
+import sys
+from pathlib import Path
 import utils.debug as debug
 
-DB_FILE = os.path.join(os.path.dirname(__file__), "gestion_fertilisants.db")
+# BDD persistante dans le profil utilisateur
+# Linux/Mac : ~/.GestionFertilisants/gestion.db
+# Windows    : C:\Users\<user>\.GestionFertilisants\gestion.db
+# Le chemin est indépendant de l'endroit ou est l'exe est installé
+
+APP_DIR  = Path.home() / ".GestionFertilisants"
+APP_DIR.mkdir(parents=True, exist_ok=True)
+DB_FILE = str(APP_DIR / "gestion.db")
+debug.debug(f"[DB] Chemin de la base de données : {DB_FILE}")
+
 
 if not os.path.exists(DB_FILE):
     debug.debug(f"[DB] Base de données non trouvée, création du fichier {DB_FILE}")
