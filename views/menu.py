@@ -15,7 +15,7 @@ from views.dialogs import ouvrir_parametres, redemarrer_debug, afficher_aide, af
 from tables.remplissages import vider_table_calcul, vider_table_milieux
 
 
-from updater import check_update, run_update
+from logic.update import check_update, run_update, update_if_available
 
 import subprocess
 import sys
@@ -119,21 +119,30 @@ def init_menu(window):
 
 def check_updates_ui():
     try:
-        version, url = check_update()
+        available, data = check_update()
     except ConnectionError as e:
         QMessageBox.warning(None, "Pas de connexion", str(e))
         return
- 
-    if not version:
-        QMessageBox.information(None, "Info", "Déjà à jour")
+    except Exception as e:
+        QMessageBox.warning(None, "Erreur", str(e))
         return
- 
+
+    if not available:
+        QMessageBox.information(None, "Info", "Déjà à jour !")
+        return
+
+    import sys
+    plateforme = "Windows" if sys.platform == "win32" \
+                 else "Linux" if sys.platform.startswith("linux") \
+                 else "macOS"
+
     reply = QMessageBox.question(
         None,
-        "Mise à jour",
-        f"Nouvelle version {version} disponible. Installer ?"
+        "Mise à jour disponible",
+        f"Nouvelle version disponible.\nInstaller pour {plateforme} ?"
     )
     if reply == QMessageBox.Yes:
-        run_update(url)
- 
-
+        try:
+            run_update(data)
+        except Exception as e:
+            QMessageBox.critical(None, "Erreur mise à jour", str(e))

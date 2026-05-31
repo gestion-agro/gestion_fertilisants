@@ -31,10 +31,8 @@ jobs:
           apt update
           apt install -y python3 python3-venv python3-pip build-essential \
           wget xz-utils file imagemagick
-
           python3 -m venv venv
           . venv/bin/activate
-
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller PySide6 bcrypt requests charset-normalizer
@@ -42,17 +40,18 @@ jobs:
       - name: Build Linux binary
         run: |
           . venv/bin/activate
-          VERSION=${VERSION#v}
-
           pyinstaller \
             --onefile app.py \
-            --name Gestion_Fertilisant_${VERSION}_linux \
+            --name Gestion_Fertilisant_linux \
             --add-data "version.txt:." \
             --hidden-import cvxpy \
+            --hidden-import bcrypt \
+            --hidden-import charset_normalizer \
             --collect-all cvxpy \
             --collect-all osqp \
             --collect-all ecos \
-            --collect-all scs
+            --collect-all scs \
+            --collect-all charset_normalizer
 
       - name: Prepare artifacts
         run: ls -R dist/
@@ -61,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux
-          path: dist/*
+          path: dist/Gestion_Fertilisant_linux
 
 
 # ======================
@@ -84,21 +83,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller bcrypt PySide6 requests charset-normalizer
-          pip install osqp ecos scs
+          pip install cvxpy osqp ecos scs
 
       - name: Build Windows executable
         shell: bash
         run: |
-          VERSION=${VERSION#v}
-
           pyinstaller \
             --onefile app.py \
             --name Gestion_Fertilisant_windows \
             --add-data "version.txt;." \
+            --hidden-import cvxpy \
+            --hidden-import bcrypt \
+            --hidden-import charset_normalizer \
             --collect-all cvxpy \
             --collect-all osqp \
             --collect-all ecos \
-            --collect-all scs
+            --collect-all scs \
+            --collect-all charset_normalizer
 
       - name: Install Inno Setup
         run: choco install innosetup -y
@@ -112,13 +113,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: dist/*.exe
+          path: dist/Gestion_Fertilisant_windows.exe
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: Output/*.exe
+          path: Output/GestionFertilisant_Setup.exe
 
 
 # ======================
@@ -140,27 +141,30 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install -r requirements.txt
-          python3 -m pip install pyinstaller bcrypt PySide6 requests
+          python3 -m pip install pyinstaller bcrypt PySide6 requests \
+            charset-normalizer cvxpy osqp ecos scs
 
       - name: Build macOS binary
         shell: bash
         run: |
-          VERSION=${VERSION#v}
-
           pyinstaller \
             --onefile app.py \
-            --name Gestion_Fertilisant_${VERSION}_macos \
+            --name Gestion_Fertilisant_macos \
             --add-data "version.txt:." \
+            --hidden-import cvxpy \
+            --hidden-import bcrypt \
+            --hidden-import charset_normalizer \
             --collect-all cvxpy \
             --collect-all osqp \
             --collect-all ecos \
-            --collect-all scs
+            --collect-all scs \
+            --collect-all charset_normalizer
 
       - name: Upload macOS build
         uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: dist/*
+          path: dist/Gestion_Fertilisant_macos
 
 
 # ======================
@@ -171,6 +175,8 @@ jobs:
     needs: [build-linux, build-windows, build-macos]
 
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: release
@@ -178,10 +184,43 @@ jobs:
       - name: Show files
         run: ls -R release
 
+      - name: Update version.json
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          cat > releases/version.json << EOF
+          {
+            "version": "${VERSION}",
+            "linux": "https://github.com/Clemcl0um/gestion_fertilisants/releases/latest/download/Gestion_Fertilisant_linux",
+            "windows": "https://github.com/Clemcl0um/gestion_fertilisants/releases/latest/download/GestionFertilisant_Setup.exe",
+            "macos": "https://github.com/Clemcl0um/gestion_fertilisants/releases/latest/download/Gestion_Fertilisant_macos"
+          }
+          EOF
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add releases/version.json
+          git commit -m "Update version.json to ${VERSION} [skip ci]" || true
+          git push origin HEAD:main || true
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release/**/*
-          overwrite_files: true
+          files: |
+            release/linux/Gestion_Fertilisant_linux
+            release/windows-exe/Gestion_Fertilisant_windows.exe
+            release/windows-installer/GestionFertilisant_Setup.exe
+            release/macos/Gestion_Fertilisant_macos
+          name: "Version ${{ github.ref_name }}"
+          body: |
+            ## Version ${{ github.ref_name }}
+
+            ### Téléchargement
+            - **Windows** (recommandé) : `GestionFertilisant_Setup.exe` — installateur
+            - **Windows** (portable) : `Gestion_Fertilisant_windows.exe`
+            - **Linux** : `Gestion_Fertilisant_linux`
+            - **macOS** : `Gestion_Fertilisant_macos`
+
+            ### Premier lancement
+            La base de données est créée automatiquement dans `~/.GestionFertilisants/`
+          overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
