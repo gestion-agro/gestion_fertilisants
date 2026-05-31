@@ -1,5 +1,5 @@
 {
-  "version": "5.4.0",
+  "version": "5.4.3",
   "linux": "https://github.com/Clemcl0um/gestion_fertilisants/releases/latest/download/Gestion_Fertilisant_linux",
   "windows": "https://github.com/Clemcl0um/gestion_fertilisants/releases/latest/download/GestionFertilisant_Setup.exe",
   "macos": "https://github.com/Clemcl0um/gestion_fertilisants/releases/latest/download/Gestion_Fertilisant_macos"
