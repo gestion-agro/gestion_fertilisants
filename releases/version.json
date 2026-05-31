@@ -1,0 +1,6 @@
+{
+  "version": "5.3.9",
+  "linux": "https://github.com/Clemcl0um/gestion_fertilisants/releases/latest/download/Gestion_Fertilisant_linux",
+  "windows": "https://github.com/Clemcl0um/gestion_fertilisants/releases/latest/download/Gestion_Fertilisant_windows.exe",
+  "macos": "https://github.com/Clemcl0um/gestion_fertilisants/releases/latest/download/Gestion_Fertilisant_macos"
+}
