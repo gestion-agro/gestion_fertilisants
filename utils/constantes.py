@@ -1,2 +1,2 @@
-APP_VERSION = "5.4.0"
-VERSION_URL = "https://raw.githubusercontent.com/gestion-agro/gestion_fertilisants/main/releases/version.json"
+APP_VERSION = "5.4.5"
+VERSION_URL = "https://api.github.com/repos/gestion-agro/gestion_fertilisants/releases/latest"

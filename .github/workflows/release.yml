@@ -188,24 +188,7 @@ jobs:
 
       - name: Show files
         run: ls -R release
-
-      - name: Update version.json
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          cat > releases/version.json << EOF
-          {
-            "version": "${VERSION}",
-            "linux": "https://github.com/gestion-agro/gestion_fertilisants/releases/latest/download/Gestion_Fertilisant_linux",
-            "windows": "https://github.com/gestion-agro/gestion_fertilisants/releases/latest/download/GestionFertilisant_Setup.exe",
-            "macos": "https://github.com/gestion-agro/gestion_fertilisants/releases/latest/download/Gestion_Fertilisant_macos"
-          }
-          EOF
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add releases/version.json
-          git commit -m "Update version.json to ${VERSION} [skip ci]" || true
-          git push origin HEAD:main || true
-
+        
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
