@@ -1,7 +1,7 @@
 [Setup]
 AppName=Gestion Fertilisant
 AppVersion=1.0.0
-DefaultDirName={pf}\GestionFertilisant
+DefaultDirName={commonpf64}\GestionFertilisant
 DefaultGroupName=Gestion Fertilisant
 OutputBaseFilename=GestionFertilisant_Setup
 OutputDir=Output
