@@ -265,6 +265,20 @@ class MainWindow(QMainWindow):
         ent = get_entreprise()
         if ent.get("has_ruches"):
             _nav("Ruches",              9)
+        
+        _section("Récolte")
+        _nav("Suivi de récolte",     10)
+        _nav("Analyse de récolte",   11)
+        _nav("Bilan exportable",     12)
+        _nav("Carte de rendement",    13)
+        _nav("Suivi des ventes",      14)
+        _nav("Clients",              15)
+        _nav("Factures",             16)
+        _nav("Stocks",               17)
+        _nav("Fournisseurs",         18)
+        _nav("Achats",               19)
+        _nav("Trésorerie",           20)
+        _nav("Bilan annuel",          21)
 
         if role == "admin":
             _section("Administration")
