@@ -29,6 +29,8 @@ from admin.admin import AdminPage
 
 from exploit.exploit import ExploitPage
 
+from ruches.ruches import RuchesPage
+
 from views.parametres import ParametresPage
 
 import utils.debug as debug
@@ -143,16 +145,23 @@ class MainWindow(QMainWindow):
         self.page_parcelles     = ParcellePage(current_user=self.current_user)
         self.page_irrigation    = IrrigationPage(current_user=self.current_user)
         self.page_admin         = AdminPage(current_user=self.current_user)
+        self.page_ruches        = RuchesPage(current_user=self.current_user)
         self.page_parametres    = ParametresPage(current_user=self.current_user)
 
         # Signal parcelles → irrigation (rechargement sans restart)
         self.page_parcelles.parcelle_modifiee.connect(
             self.page_irrigation.recharger_parcelles)
 
-        for p in [self.page_fertilisants, self.page_ppp_catalogue,
-                  self.page_ppp_aide, self.page_ppp_carnet,
-                  self.page_exploit, self.page_parcelles, self.page_irrigation,
-                  self.page_admin, self.page_parametres]:
+        for p in [self.page_fertilisants,
+                  self.page_ppp_catalogue,
+                  self.page_ppp_aide,
+                  self.page_ppp_carnet,
+                  self.page_exploit,
+                  self.page_parcelles,
+                  self.page_irrigation,
+                  self.page_admin,
+                  self.page_parametres,
+                  self.page_ruches]:
             self.stack.addWidget(p)
 
         self.page_ppp_aide.creer_traitement.connect(self._aller_au_carnet)
@@ -243,13 +252,19 @@ class MainWindow(QMainWindow):
 
         _section("PPP")
         _nav("Catalogue",            1)
-        _nav("Aide à la décision",   2)
-        _nav("Carnet",               3)
+        cipp = self.current_user.get("certiphyto_type")
+        if cipp in  ("CON", "DESA", "DENSA", "OPE") or role == "admin":
+            _nav("Aide à la décision",   2)
+            _nav("Carnet de traitements", 3)
 
         _section("Exploitation")
         _nav("Entreprise",          4)
         _nav("Parcelles",            5)
         _nav("Irrigation",           6)
+        from db import get_entreprise
+        ent = get_entreprise()
+        if ent.get("has_ruches"):
+            _nav("Ruches",              9)
 
         if role == "admin":
             _section("Administration")

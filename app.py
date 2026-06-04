@@ -14,6 +14,7 @@ from logic.solver_fix import fix_cbc_permissions
 from db import init_db, DB_FILE
 from ui.login_window import LoginWindow
 from views.login import authenticate
+from wizard import SetupWizard
 
 CONFIG_FILE = os.path.join(os.path.dirname(DB_FILE), "config.json")
 
@@ -34,13 +35,20 @@ def main():
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(str(ICON_FILE)))
 
-    try:
+    try:    
         init_db()
     except Exception as e:
         QMessageBox.critical(
             None, "Erreur base de données",
             f"Impossible d'initialiser la base :\n{e}")
         sys.exit(1)
+
+    # ── Premier lancement : setup wizard ───────────────
+    from db import is_first_launch
+    if is_first_launch():
+        wizard = SetupWizard()
+        if wizard.exec() != SetupWizard.Accepted:
+            sys.exit(0)
 
     # ── Connexion automatique ─────────────────
     current_user = None

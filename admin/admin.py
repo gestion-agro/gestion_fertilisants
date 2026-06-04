@@ -55,10 +55,10 @@ class AdminPage(QWidget):
         top_u.addWidget(btn_add_user)
         lay_users.addLayout(top_u)
 
-        self.table_users = QTableWidget(0, 7)
+        self.table_users = QTableWidget(0, 8)
         self.table_users.setHorizontalHeaderLabels(
             ["Nom", "Prénom", "Identifiant", "Rôle",
-             "CertiPhyto", "Expiration", "État"])
+             "CertiPhyto", "Expiration", "Apiculteur", "État"])
         self.table_users.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table_users.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table_users.setAlternatingRowColors(True)
@@ -102,12 +102,14 @@ class AdminPage(QWidget):
                 self.table_users.setItem(r, 4, QTableWidgetItem(cipp))
                 exp = u.get("certiphyto_date_expiration") or "—"
                 self.table_users.setItem(r, 5, QTableWidgetItem(exp))
+                apic = "✓" if u.get("is_apiculteur") else "—"
+                self.table_users.setItem(r, 6, QTableWidgetItem(apic))
                 etat = "Actif" if u.get("actif", 1) else "Désactivé"
-                self.table_users.setItem(r, 6, QTableWidgetItem(etat))
+                self.table_users.setItem(r, 7, QTableWidgetItem(etat))
                 self.table_users.item(r, 0).setData(Qt.UserRole, u["id"])
 
                 if not u.get("actif", 1):
-                    for col in range(7):
+                    for col in range(8):
                         item = self.table_users.item(r, col)
                         if item:
                             item.setForeground(QColor("gray"))
@@ -221,6 +223,9 @@ class DialogUser(QDialog):
         form.addRow("Date expiration",   self.inp_cipp_exp)
         form.addRow("Rôle",              self.combo_role)
 
+        self.chk_apiculteur = QCheckBox("Apiculteur (peut gérer et supprimer les ruches)")
+        form.addRow("", self.chk_apiculteur)
+
         self.lbl_err = QLabel("")
         self.lbl_err.setStyleSheet("color: red;")
         self.lbl_err.setWordWrap(True)
@@ -253,6 +258,7 @@ class DialogUser(QDialog):
                     QDate.fromString(u["certiphyto_date_expiration"], "yyyy-MM-dd"))
             idx_role = self.combo_role.findText(u.get("role", "user"))
             self.combo_role.setCurrentIndex(max(0, idx_role))
+            self.chk_apiculteur.setChecked(bool(u.get("is_apiculteur")))
             if u.get("date_embauche"):
                 self.inp_embauche.setDate(
                     QDate.fromString(u["date_embauche"], "yyyy-MM-dd"))
@@ -286,6 +292,7 @@ class DialogUser(QDialog):
         cipp_exp  = (self.inp_cipp_exp.date().toString("yyyy-MM-dd")
                      if cipp_type else None)
         role      = self.combo_role.currentText()
+        is_apiculteur = 1 if self.chk_apiculteur.isChecked() else 0
         tel       = self.inp_tel.text().strip() or None
         embauche  = self.inp_embauche.date().toString("yyyy-MM-dd")
 
@@ -297,20 +304,20 @@ class DialogUser(QDialog):
                     UPDATE users SET nom=?, prenom=?,
                     certiphyto_cipp=?, certiphyto_type=?,
                     certiphyto_date_expiration=?, role=?,
-                    telephone=?, date_embauche=? WHERE id=?
+                    telephone=?, date_embauche=?, is_apiculteur=? WHERE id=?
                 """, (nom, prenom, cipp, cipp_type, cipp_exp,
-                      role, tel, embauche, self.user_id))
+                      role, tel, embauche, is_apiculteur, self.user_id))
             else:
                 cur.execute("""
                     INSERT INTO users
                     (nom, prenom, username, password_hash,
                      certiphyto_cipp, certiphyto_type,
                      certiphyto_date_expiration, role,
-                     telephone, date_embauche)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     telephone, date_embauche, is_apiculteur)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (nom, prenom, username,
                       hash_password(self.inp_pass.text()),
-                      cipp, cipp_type, cipp_exp, role, tel, embauche))
+                      cipp, cipp_type, cipp_exp, role, tel, embauche, is_apiculteur))
             conn.commit()
             cur.close()
             self.accept()
