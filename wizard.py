@@ -236,13 +236,8 @@ class SetupWizard(QDialog):
 
         self.ent_napi     = QLineEdit()
         self.ent_napi.setPlaceholderText("N° NAPI de l'exploitation")
-        self.inp_nb_ruches = QSpinBox()
-        self.inp_nb_ruches.setRange(1, 9999)
-        self.inp_nb_ruches.setValue(1)
-        self.inp_nb_ruches.setSuffix(" ruche(s)")
 
         ri_lay.addRow("N° NAPI *",    self.ent_napi)
-        ri_lay.addRow("Nb de ruches", self.inp_nb_ruches)
         self.w_ruches_infos.setVisible(False)
         ruches_lay.addWidget(self.w_ruches_infos)
         lay.addWidget(ruches_group)
@@ -381,7 +376,6 @@ class SetupWizard(QDialog):
 
         has_ruches = 1 if self.chk_ruches.isChecked() else 0
         napi       = self.ent_napi.text().strip() or None
-        nb_ruches  = self.inp_nb_ruches.value() if has_ruches else 0
 
         try:
             conn = get_connection()
@@ -392,8 +386,8 @@ class SetupWizard(QDialog):
                 INSERT OR REPLACE INTO entreprise
                 (id, nom, siret, adresse, code_postal, ville,
                  telephone, email, num_tva, num_bio, organisme_certif,
-                 type_exploitation, has_ruches)
-                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 type_exploitation, has_ruches, num_napi)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 self.ent_nom.text().strip(),
                 self.ent_siret.text().strip() or None,
@@ -407,6 +401,7 @@ class SetupWizard(QDialog):
                 self.ent_org_certif.text().strip() or None,
                 type_exploit,
                 has_ruches,
+                self.ent_napi.text().strip() or None,
             ))
 
             # Compte admin
@@ -417,14 +412,6 @@ class SetupWizard(QDialog):
                 (nom, prenom, username, password_hash, role, actif)
                 VALUES (?, ?, ?, ?, 'admin', 1)
             """, (nom, prenom, username, pw_hash))
-
-            # Si ruches → créer les ruches initiales avec le N° NAPI
-            if has_ruches and napi:
-                for i in range(1, nb_ruches + 1):
-                    cur.execute("""
-                        INSERT INTO ruches (nom, num_napi, nb_colonies)
-                        VALUES (?, ?, 1)
-                    """, (f"Ruche {i}", napi))
 
             conn.commit()
             cur.close()
