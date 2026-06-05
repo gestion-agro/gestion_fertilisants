@@ -33,6 +33,8 @@ def main():
     ensure_user_data()
 
     app = QApplication(sys.argv)
+    from PySide6.QtCore import QLocale
+    QLocale.setDefault(QLocale(QLocale.French, QLocale.France))
     app.setWindowIcon(QIcon(str(ICON_FILE)))
 
     try:    
