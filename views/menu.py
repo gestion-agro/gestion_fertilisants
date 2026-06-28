@@ -8,12 +8,7 @@ from PySide6.QtCore import *
 import utils.debug as debug
 from utils.constantes import VERSION_URL
 
-from views.culture import ajout_culture
-from views.fertilisants import ajout_fert
 from views.dialogs import ouvrir_parametres, redemarrer_debug, afficher_aide, afficher_apropos
-
-from tables.remplissages import vider_table_calcul, vider_table_milieux
-
 
 from logic.update import check_update, run_update, update_if_available
 
@@ -31,20 +26,6 @@ def init_menu(window):
     # Fichier
     # ======================
     menu_fichier = menu_bar.addMenu("Fichiers")
-    
-    action_vider_table_milieux = QAction("Vider tableaux", window)
-    action_vider_table_milieux.triggered.connect(
-        lambda : vider_table_milieux(window)
-    )
-    menu_fichier.addAction(action_vider_table_milieux)
-    
-    action_vider_table_calcul = QAction("Vider calculs", window)
-    action_vider_table_calcul.triggered.connect(
-        lambda : vider_table_calcul(window)
-    )
-    menu_fichier.addAction(action_vider_table_calcul)
-
-    menu_fichier.addSeparator()
 
     action_parametres = QAction("Paramètres", window)
     action_parametres.triggered.connect(
@@ -57,24 +38,7 @@ def init_menu(window):
     action_quitter = QAction("Quitter", window)
     action_quitter.setShortcut(QKeySequence.Quit)
     action_quitter.triggered.connect(window.close)
-    menu_fichier.addAction(action_quitter)        
-    # ======================
-
-    # Édition
-    # ======================
-    menu_edition = menu_bar.addMenu("Édition")
-
-    action_nouvelle_culture = QAction("Nouvelle culture", window)
-    action_nouvelle_culture.triggered.connect(
-        lambda : ajout_culture(window)
-    )
-    menu_edition.addAction(action_nouvelle_culture)
-
-    action_nouveau_fertiisant = QAction("Nouveau fertilisant", window)
-    action_nouveau_fertiisant.triggered.connect(
-        lambda : ajout_fert(window)
-    )
-    menu_edition.addAction(action_nouveau_fertiisant)     
+    menu_fichier.addAction(action_quitter)
     # ======================
 
     # Outils
@@ -85,7 +49,7 @@ def init_menu(window):
     action_debug.triggered.connect(
         lambda : redemarrer_debug(window)
     )
-    menu_outils.addAction(action_debug)     
+    menu_outils.addAction(action_debug)
     # ======================
 
     # Aide

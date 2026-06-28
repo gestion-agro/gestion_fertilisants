@@ -57,3 +57,9 @@ deb_package/
 linuxdeploy/
 
 image/
+
+# Anciens fichiers remplacés (gardés en local, jamais versionnés)
+ancien/
+
+# Pytest
+.pytest_cache/

@@ -493,7 +493,6 @@ class CarnetPage(QWidget):
                 conn.commit()
                 cur.close()
                 debug.debug(f"[carnet] Décision {decision_id} annulée en BDD")
-                # ← Recharger TOUT (décisions + à faire) pas juste les décisions
                 self._charger()
             except Exception as e:
                 debug.debug(f"[carnet] Erreur annulation : {e}")
@@ -663,10 +662,11 @@ class CarteAFaire(QFrame):
         self.decision = decision
         self.current_user = current_user
         self.on_refresh = on_refresh
-        self.setFrameShape(QFrame.StyledPanel)
-        self.setStyleSheet("""
-            QFrame { border: 2px solid #F5A623; border-radius: 6px; margin-bottom: 6px; }
-        """)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setAutoFillBackground(True)
+        pal = self.palette()
+        pal.setColor(QPalette.Window, QColor("#FEF3C7"))
+        self.setPalette(pal)
         self._build_ui()
 
     def _build_ui(self):
@@ -687,13 +687,13 @@ class CarteAFaire(QFrame):
             f"Dose : {d.get('dose_prescrite','—')} {d.get('unite','')}  |  "
             f"Date prévue : {self._fmt_date(d.get('date_prevue'))}  |  "
             f"Décidé par : {d.get('decideur_nom','—')}")
-        infos.setStyleSheet("font-size: 12px; color: palette(mid);")
+        infos.setStyleSheet("font-size: 12px; color: #78716c;")
         infos.setWordWrap(True)
         layout.addWidget(infos)
 
         if d.get("notes_decideur"):
             lbl_notes = QLabel(f"Note décideur : {d['notes_decideur']}")
-            lbl_notes.setStyleSheet("font-size: 12px; font-style: italic;")
+            lbl_notes.setStyleSheet("font-size: 12px; font-style: italic; color: #57534e;")
             lbl_notes.setWordWrap(True)
             layout.addWidget(lbl_notes)
 
@@ -758,9 +758,10 @@ class DialogDecision(QDialog):
         self.combo_produit.addItem("— Résultats de recherche —", None)
         form.addRow("Sélectionner :", self.combo_produit)
 
+        # Le combo stocke le culture_parcelle_id (cp.id), pas le parcelle_id
         self.combo_parcelle = QComboBox()
         self.combo_parcelle.addItem("— Sélectionnez —", None)
-        form.addRow("Parcelle *", self.combo_parcelle)
+        form.addRow("Parcelle / Culture *", self.combo_parcelle)
 
         self.inp_culture = QLineEdit()
         self.inp_culture.setPlaceholderText("Culture concernée")
@@ -798,7 +799,6 @@ class DialogDecision(QDialog):
 
         layout.addLayout(form)
 
-        # ── Option appliquer immédiatement (DESA/DENSA) ──
         if self._peut_appliquer:
             sep = QFrame(); sep.setFrameShape(QFrame.HLine)
             layout.addWidget(sep)
@@ -816,19 +816,31 @@ class DialogDecision(QDialog):
         self._charger_parcelles()
 
     def _charger_parcelles(self):
+        """Charge une entrée par CULTURE (pas par parcelle) afin de
+        pouvoir distinguer Abricot et Tomate sur une même parcelle.
+        Stocke cp.id (culture_parcelle_id) comme data du combo."""
         try:
             conn = get_connection()
             cur = conn.cursor()
-            cur.execute("SELECT id, nom, culture FROM parcelles WHERE actif=1 ORDER BY nom")
+            cur.execute("""
+                SELECT cp.id, p.id AS parcelle_id, p.nom, cp.espece, cp.variete
+                FROM parcelles p
+                JOIN cultures_parcelle cp ON cp.parcelle_id = p.id
+                WHERE p.actif = 1 AND cp.actif = 1
+                  AND cp.categorie IN ('maraichage', 'arbo')
+                ORDER BY p.nom, cp.espece
+            """)
             for row in cur.fetchall():
-                label = row[1]
-                if row[2]:
-                    label += f" ({row[2]})"
-                self.combo_parcelle.addItem(label, row[0])
-                self.combo_parcelle.setItemData(
-                    self.combo_parcelle.count() - 1, row[2], Qt.UserRole + 1)
+                culture_id, parcelle_id, nom_parcelle, espece, variete = row
+                label = f"{nom_parcelle} — {espece or '—'}"
+                if variete:
+                    label += f" ({variete})"
+                self.combo_parcelle.addItem(label, culture_id)
+                idx = self.combo_parcelle.count() - 1
+                self.combo_parcelle.setItemData(idx, espece, Qt.UserRole + 1)
+                self.combo_parcelle.setItemData(idx, parcelle_id, Qt.UserRole + 2)
             cur.close()
-            debug.debug(f"[DialogDecision] {self.combo_parcelle.count()-1} parcelle(s) chargée(s)")
+            debug.debug(f"[DialogDecision] {self.combo_parcelle.count()-1} culture(s) chargée(s)")
         except Exception as e:
             debug.debug(f"[DialogDecision] Erreur parcelles : {e}")
             traceback.print_exc()
@@ -866,36 +878,38 @@ class DialogDecision(QDialog):
             traceback.print_exc()
 
     def _valider(self):
-        produit_id  = self.combo_produit.currentData()
-        parcelle_id = self.combo_parcelle.currentData()
-        culture     = self.inp_culture.text().strip()
-        dose        = self.inp_dose.value()
+        produit_id          = self.combo_produit.currentData()
+        culture_parcelle_id = self.combo_parcelle.currentData()
+        culture             = self.inp_culture.text().strip()
+        dose                = self.inp_dose.value()
 
         debug.debug(f"[DialogDecision] _valider produit={produit_id} "
-                    f"parcelle={parcelle_id} culture={culture} dose={dose}")
+                    f"culture_parcelle={culture_parcelle_id} culture={culture} dose={dose}")
 
         if not produit_id:
             self.lbl_err.setText("Sélectionnez un produit."); return
-        if not parcelle_id:
+        if not culture_parcelle_id:
             self.lbl_err.setText("Sélectionnez une parcelle."); return
         if not culture:
             self.lbl_err.setText("Renseignez la culture."); return
         if dose <= 0:
             self.lbl_err.setText("Dose invalide."); return
 
+        idx = self.combo_parcelle.currentIndex()
+        parcelle_id = self.combo_parcelle.itemData(idx, Qt.UserRole + 2)
+
         bio_agr = self.inp_bio_agr.text().strip() or None
         unite   = self.inp_unite.text().strip() or "L/ha"
         date_p  = self.inp_date.date().toString("yyyy-MM-dd")
         notes   = self.inp_notes.toPlainText().strip() or None
 
-        # Vérification homologation produit/parcelle
-        from db import produit_homologue_pour_parcelle
-        if not produit_homologue_pour_parcelle(produit_id, parcelle_id):
-            debug.debug("[DialogDecision] Produit non homologué pour cette parcelle")
+        from db import produit_homologue_pour_culture
+        if not produit_homologue_pour_culture(produit_id, culture_parcelle_id):
+            debug.debug("[DialogDecision] Produit non homologué pour cette culture")
             rep = QMessageBox.warning(
-                self, "Produit non homologué pour cette parcelle",
-                "Ce produit n'est pas homologué pour les cultures "
-                "enregistrées sur cette parcelle.\n\nContinuer quand même ?",
+                self, "Produit non homologué pour cette culture",
+                "Aucune catégorie PPP de cette culture ne correspond "
+                "aux usages homologués de ce produit.\n\nContinuer quand même ?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if rep == QMessageBox.No:
                 return
@@ -915,7 +929,6 @@ class DialogDecision(QDialog):
             cur.close()
             debug.debug(f"[DialogDecision] Décision {decision_id} créée")
 
-            # Option appliquer immédiatement
             appliquer = (
                 self._peut_appliquer
                 and hasattr(self, "chk_appliquer_maintenant")
@@ -923,7 +936,6 @@ class DialogDecision(QDialog):
             debug.debug(f"[DialogDecision] appliquer_maintenant={appliquer}")
 
             if appliquer:
-                # Récupérer les infos du produit
                 conn2 = get_connection()
                 cur2 = conn2.cursor()
                 cur2.execute(
@@ -937,7 +949,7 @@ class DialogDecision(QDialog):
                     "nom_commercial":   prod_row[0] if prod_row else "—",
                     "num_amm":          prod_row[1] if prod_row else "—",
                     "substance_active": prod_row[2] if prod_row else None,
-                    "parcelle_nom":     self.combo_parcelle.currentText().split(" (")[0],
+                    "parcelle_nom":     self.combo_parcelle.currentText().split(" — ")[0],
                     "culture":          culture,
                     "bio_agresseur":    bio_agr,
                     "dose_prescrite":   dose,
@@ -950,7 +962,7 @@ class DialogDecision(QDialog):
                     "parcelle_id":      parcelle_id,
                 }
                 debug.debug(f"[DialogDecision] Ouverture DialogConfirmerTraitement")
-                self.accept()  # Fermer ce dialog d'abord
+                self.accept()
                 dlg_appli = DialogConfirmerTraitement(
                     decision=decision_dict,
                     current_user=self.current_user,
@@ -1189,6 +1201,9 @@ def _pre_remplir_carnet(carnet_page, produit_id: int, usage_id: int,
         carnet_page._charger()
 
 
+# ─────────────────────────────────────────────────────────────
+# Dialog : Nouvelle décision pré-remplie (depuis Aide à la décision)
+# ─────────────────────────────────────────────────────────────
 class DialogDecisionPreRempli(QDialog):
     def __init__(self, produit_id: int, usage_id: int,
                  culture: str, bio_agresseur: str,
@@ -1240,15 +1255,26 @@ class DialogDecisionPreRempli(QDialog):
         form = QFormLayout(form_group)
         form.setSpacing(10)
 
+        # Le combo stocke le culture_parcelle_id (cp.id), pas le parcelle_id
         self.combo_parcelle = QComboBox()
         self.combo_parcelle.addItem("— Sélectionnez —", None)
         self._charger_parcelles()
-        form.addRow("Parcelle *", self.combo_parcelle)
+        form.addRow("Parcelle / Culture *", self.combo_parcelle)
+
+        info_filtre = QLabel(
+            "ℹ Les cultures marquées ✓ ont une catégorie PPP correspondant "
+            "au produit sélectionné.")
+        info_filtre.setStyleSheet("color:palette(mid); font-size:10px;")
+        info_filtre.setWordWrap(True)
+        form.addRow(info_filtre)
 
         dose_w = QWidget()
         dose_lay = QHBoxLayout(dose_w)
         dose_lay.setContentsMargins(0, 0, 0, 0)
         self.inp_dose = QDoubleSpinBox()
+
+        self.inp_dose.setAutoFillBackground(True)
+
         self.inp_dose.setRange(0.01, 9999)
         self.inp_dose.setDecimals(2)
         if dose_max:
@@ -1274,7 +1300,6 @@ class DialogDecisionPreRempli(QDialog):
 
         layout.addWidget(form_group)
 
-        # Option appliquer immédiatement
         self._peut_appliquer = (
             peut(self.current_user, "carnet_ecriture")
             or self.current_user.get("role") == "admin")
@@ -1299,19 +1324,45 @@ class DialogDecisionPreRempli(QDialog):
         self._verifier_dose()
 
     def _charger_parcelles(self):
+        """Charge une entrée par culture, en mettant en évidence (✓)
+        celles dont la catégorie PPP correspond exactement à self.culture."""
         try:
             conn = get_connection()
             cur = conn.cursor()
-            cur.execute("SELECT id, nom, culture FROM parcelles WHERE actif=1 ORDER BY nom")
-            for row in cur.fetchall():
-                label = row[1]
-                if row[2]:
-                    label += f" ({row[2]})"
-                self.combo_parcelle.addItem(label, row[0])
-                if row[2] and row[2].lower() == (self.culture or "").lower():
-                    self.combo_parcelle.setCurrentIndex(
-                        self.combo_parcelle.count() - 1)
+            cur.execute("""
+                SELECT cp.id, p.id AS parcelle_id, p.nom, cp.espece, cp.variete
+                FROM parcelles p
+                JOIN cultures_parcelle cp ON cp.parcelle_id = p.id
+                WHERE p.actif = 1 AND cp.actif = 1
+                  AND cp.categorie IN ('maraichage', 'arbo')
+                ORDER BY p.nom, cp.espece
+            """)
+            rows = cur.fetchall()
             cur.close()
+
+            from db import get_categories_ppp_culture
+
+            premiere_compatible = None
+            for row in rows:
+                culture_id, parcelle_id, nom_parcelle, espece, variete = row
+                cats_ppp = get_categories_ppp_culture(culture_id)
+                compatible = any(
+                    c.lower() == (self.culture or "").lower() for c in cats_ppp)
+
+                icone = "✓ " if compatible else ""
+                label = f"{icone}{nom_parcelle} — {espece or '—'}"
+                if variete:
+                    label += f" ({variete})"
+                self.combo_parcelle.addItem(label, culture_id)
+                idx = self.combo_parcelle.count() - 1
+                self.combo_parcelle.setItemData(idx, espece, Qt.UserRole + 1)
+                self.combo_parcelle.setItemData(idx, parcelle_id, Qt.UserRole + 2)
+
+                if compatible and premiere_compatible is None:
+                    premiere_compatible = idx
+
+            if premiere_compatible is not None:
+                self.combo_parcelle.setCurrentIndex(premiere_compatible)
         except Exception as e:
             debug.debug(f"[DialogDecisionPreRempli] Erreur parcelles : {e}")
             traceback.print_exc()
@@ -1320,21 +1371,27 @@ class DialogDecisionPreRempli(QDialog):
         dose = self.inp_dose.value()
         if self.dose_max and dose > self.dose_max:
             self.lbl_dose_warn.setText(f"⚠ Dépasse la dose max ({self.dose_max})")
-            self.inp_dose.setStyleSheet("border: 2px solid red;")
+            pal = self.inp_dose.palette()
+            pal.setColor(QPalette.Base, QColor("#FEE2E2"))
+            self.inp_dose.setPalette(pal)
         else:
             self.lbl_dose_warn.setText("")
-            self.inp_dose.setStyleSheet("")
+            pal = self.inp_dose.palette()
+            pal.setColor(QPalette.Base, self.style().standardPalette().color(QPalette.Base))
+            self.inp_dose.setPalette(pal)
 
     def _valider(self):
-        parcelle_id = self.combo_parcelle.currentData()
-        dose        = self.inp_dose.value()
-        debug.debug(f"[DialogDecisionPreRempli] _valider parcelle={parcelle_id} dose={dose}")
+        culture_parcelle_id = self.combo_parcelle.currentData()
+        dose = self.inp_dose.value()
+        debug.debug(f"[DialogDecisionPreRempli] _valider culture_parcelle={culture_parcelle_id} dose={dose}")
 
-        if not parcelle_id:
+        if not culture_parcelle_id:
             self.lbl_err.setText("Sélectionnez une parcelle.")
             return
 
-        # Vérification homologation culture + bio-agresseur
+        idx = self.combo_parcelle.currentIndex()
+        parcelle_id = self.combo_parcelle.itemData(idx, Qt.UserRole + 2)
+
         try:
             conn = get_connection()
             cur = conn.cursor()
@@ -1377,18 +1434,16 @@ class DialogDecisionPreRempli(QDialog):
                 if rep == QMessageBox.No:
                     return
 
-        # Vérification homologation produit/parcelle (catégories PPP)
-        from db import produit_homologue_pour_parcelle
-        if not produit_homologue_pour_parcelle(self.produit_id, parcelle_id):
-            debug.debug("[DialogDecisionPreRempli] Parcelle non compatible PPP")
-            rep = QMessageBox.warning(self, "Parcelle non compatible",
-                "Aucune catégorie PPP de cette parcelle ne correspond "
+        from db import produit_homologue_pour_culture
+        if not produit_homologue_pour_culture(self.produit_id, culture_parcelle_id):
+            debug.debug("[DialogDecisionPreRempli] Culture non compatible PPP")
+            rep = QMessageBox.warning(self, "Culture non compatible",
+                "Aucune catégorie PPP de cette culture ne correspond "
                 "aux usages homologués.\n\nContinuer quand même ?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if rep == QMessageBox.No:
                 return
 
-        # Vérification dose max
         if self.dose_max and dose > self.dose_max:
             rep = QMessageBox.warning(self, "Dose supérieure au maximum",
                 f"La dose saisie ({dose}) dépasse le maximum homologué "
@@ -1418,7 +1473,6 @@ class DialogDecisionPreRempli(QDialog):
             cur.close()
             debug.debug(f"[DialogDecisionPreRempli] Décision {decision_id} créée")
 
-            # Option appliquer immédiatement
             appliquer = (
                 self._peut_appliquer
                 and hasattr(self, "chk_appliquer_maintenant")
@@ -1432,7 +1486,7 @@ class DialogDecisionPreRempli(QDialog):
                     "nom_commercial":   self.prod_info.get("nom_commercial"),
                     "num_amm":          self.prod_info.get("num_amm"),
                     "substance_active": self.prod_info.get("substance_active"),
-                    "parcelle_nom":     self.combo_parcelle.currentText().split(" (")[0],
+                    "parcelle_nom":     self.combo_parcelle.currentText().split(" — ")[0],
                     "culture":          self.culture,
                     "bio_agresseur":    self.bio_agresseur,
                     "dose_prescrite":   dose,

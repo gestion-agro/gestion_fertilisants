@@ -107,6 +107,9 @@ class AideDecision(QWidget):
         hh.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         hh.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         self.table_results.itemSelectionChanged.connect(self._on_produit_changed)
+        self.table_results.cellDoubleClicked.connect(
+            lambda row, col: self._utiliser_produit()
+        )
         results_layout.addWidget(self.table_results)
         vsplit.addWidget(results_group)
 

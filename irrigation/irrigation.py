@@ -5,7 +5,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from db import get_connection
+from db import get_connection, peut_action, get_cultures_systeme
 import traceback
 from datetime import datetime
 
@@ -14,7 +14,10 @@ class IrrigationPage(QWidget):
     def __init__(self, current_user: dict, parent=None):
         super().__init__(parent)
         self.current_user = current_user
+        self._peut_supprimer = peut_action(current_user, "irrigation", "suppression")
+        self._peut_ecrire    = peut_action(current_user, "irrigation", "ecriture")
         self._build_ui()
+        self.btn_enregistrer.setVisible(self._peut_ecrire)
         self._charger_parcelles()
         self._charger_historique()
 
@@ -28,7 +31,6 @@ class IrrigationPage(QWidget):
         titre.setFont(f)
         root.addWidget(titre)
 
-        # Splitter vertical : saisie haut / historique bas
         vsplit = QSplitter(Qt.Vertical)
 
         # ── Saisie ────────────────────────────
@@ -37,29 +39,32 @@ class IrrigationPage(QWidget):
         saisie_layout.setSpacing(10)
         saisie_layout.setContentsMargins(12, 12, 12, 12)
 
-        # Parcelle
         saisie_layout.addWidget(QLabel("Parcelle *"), 0, 0)
         self.combo_parcelle = QComboBox()
         self.combo_parcelle.setMinimumWidth(200)
         self.combo_parcelle.currentIndexChanged.connect(self._on_parcelle_changed)
         saisie_layout.addWidget(self.combo_parcelle, 0, 1)
 
-        # Système
         saisie_layout.addWidget(QLabel("Système *"), 0, 2)
         self.combo_systeme = QComboBox()
-        self.combo_systeme.setMinimumWidth(200)
-        self.combo_systeme.currentIndexChanged.connect(self._calc_volume)
+        self.combo_systeme.setMinimumWidth(220)
+        self.combo_systeme.currentIndexChanged.connect(self._on_systeme_changed)
         saisie_layout.addWidget(self.combo_systeme, 0, 3)
 
-        # Date + heure
-        saisie_layout.addWidget(QLabel("Date *"), 1, 0)
+        # Info cultures couvertes par le système sélectionné
+        self.lbl_cultures_sys = QLabel("")
+        self.lbl_cultures_sys.setStyleSheet(
+            "color:#1D4ED8; font-size:11px; font-style:italic;")
+        self.lbl_cultures_sys.setWordWrap(True)
+        saisie_layout.addWidget(self.lbl_cultures_sys, 1, 0, 1, 4)
+
+        saisie_layout.addWidget(QLabel("Date *"), 2, 0)
         self.inp_date = QDateTimeEdit(QDateTime.currentDateTime())
         self.inp_date.setDisplayFormat("dd/MM/yyyy HH:mm")
         self.inp_date.setCalendarPopup(True)
-        saisie_layout.addWidget(self.inp_date, 1, 1)
+        saisie_layout.addWidget(self.inp_date, 2, 1)
 
-        # Durée
-        saisie_layout.addWidget(QLabel("Durée *"), 1, 2)
+        saisie_layout.addWidget(QLabel("Durée *"), 2, 2)
         dur_widget = QWidget()
         dur_layout = QHBoxLayout(dur_widget)
         dur_layout.setContentsMargins(0, 0, 0, 0)
@@ -73,30 +78,26 @@ class IrrigationPage(QWidget):
         self.inp_minutes.valueChanged.connect(self._calc_volume)
         dur_layout.addWidget(self.inp_heures)
         dur_layout.addWidget(self.inp_minutes)
-        saisie_layout.addWidget(dur_widget, 1, 3)
+        saisie_layout.addWidget(dur_widget, 2, 3)
 
-        # Volume calculé (lecture seule)
-        saisie_layout.addWidget(QLabel("Volume calculé"), 2, 0)
+        saisie_layout.addWidget(QLabel("Volume calculé"), 3, 0)
         self.lbl_volume = QLabel("—")
         self.lbl_volume.setStyleSheet("font-size: 14px; font-weight: bold;")
-        saisie_layout.addWidget(self.lbl_volume, 2, 1)
+        saisie_layout.addWidget(self.lbl_volume, 3, 1)
 
-        # Info système
         self.lbl_sys_info = QLabel("")
         self.lbl_sys_info.setStyleSheet("color: palette(mid); font-size: 12px;")
-        saisie_layout.addWidget(self.lbl_sys_info, 2, 2, 1, 2)
+        saisie_layout.addWidget(self.lbl_sys_info, 3, 2, 1, 2)
 
-        # Notes
-        saisie_layout.addWidget(QLabel("Notes"), 3, 0)
+        saisie_layout.addWidget(QLabel("Notes"), 4, 0)
         self.inp_notes = QLineEdit()
         self.inp_notes.setPlaceholderText("Observations, problèmes...")
-        saisie_layout.addWidget(self.inp_notes, 3, 1, 1, 3)
+        saisie_layout.addWidget(self.inp_notes, 4, 1, 1, 3)
 
-        # Bouton enregistrer
         self.btn_enregistrer = QPushButton("Enregistrer la session")
         self.btn_enregistrer.setFixedHeight(38)
         self.btn_enregistrer.clicked.connect(self._enregistrer)
-        saisie_layout.addWidget(self.btn_enregistrer, 4, 0, 1, 4)
+        saisie_layout.addWidget(self.btn_enregistrer, 5, 0, 1, 4)
 
         vsplit.addWidget(saisie_group)
 
@@ -105,7 +106,6 @@ class IrrigationPage(QWidget):
         histo_layout = QVBoxLayout(histo_group)
         histo_layout.setContentsMargins(6, 6, 6, 6)
 
-        # Filtres historique
         filtre_layout = QHBoxLayout()
         self.combo_filtre_parcelle = QComboBox()
         self.combo_filtre_parcelle.addItem("Toutes les parcelles", None)
@@ -135,25 +135,21 @@ class IrrigationPage(QWidget):
 
         self.table_histo = QTableWidget(0, 7)
         self.table_histo.setHorizontalHeaderLabels(
-            ["Date", "Parcelle", "Système", "Durée", "Volume (L)",
-             "Opérateur", "Notes"])
+            ["Date", "Parcelle", "Système", "Cultures", "Durée",
+             "Volume (L)", "Opérateur"])
         self.table_histo.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table_histo.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table_histo.setAlternatingRowColors(True)
         hh = self.table_histo.horizontalHeader()
-        hh.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(6, QHeaderView.Stretch)
+        for i in range(6):
+            hh.setSectionResizeMode(i, QHeaderView.ResizeToContents)
+        hh.setSectionResizeMode(3, QHeaderView.Stretch)
         self.table_histo.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table_histo.customContextMenuRequested.connect(self._menu_histo)
         histo_layout.addWidget(self.table_histo)
         vsplit.addWidget(histo_group)
 
-        vsplit.setSizes([280, 320])
+        vsplit.setSizes([300, 320])
         root.addWidget(vsplit, 1)
 
     # ──────────────────────────────────────────
@@ -173,7 +169,7 @@ class IrrigationPage(QWidget):
             for row in rows:
                 self.combo_parcelle.addItem(row[1], row[0])
                 self.combo_filtre_parcelle.addItem(row[1], row[0])
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
 
     def _on_parcelle_changed(self):
@@ -181,6 +177,7 @@ class IrrigationPage(QWidget):
         self.combo_systeme.clear()
         self.combo_systeme.addItem("— Sélectionnez un système —", None)
         if not parcelle_id:
+            self.lbl_cultures_sys.setText("")
             return
         try:
             conn = get_connection()
@@ -197,22 +194,46 @@ class IrrigationPage(QWidget):
                 if s.get("description"):
                     label += f" ({s['description']})"
                 self.combo_systeme.addItem(label, s["id"])
-                # Stocker les infos pour le calcul
                 self.combo_systeme.setItemData(
                     self.combo_systeme.count() - 1,
                     (s["nb_emetteurs"], s["debit_lh"]),
                     Qt.UserRole + 1)
             cur.close()
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
         self._calc_volume()
 
-    def _calc_volume(self):
+    def _on_systeme_changed(self):
         systeme_id = self.combo_systeme.currentData()
+        if not systeme_id:
+            self.lbl_cultures_sys.setText("")
+        else:
+            cultures = get_cultures_systeme(systeme_id)
+            if cultures:
+                noms = []
+                for c in cultures:
+                    if c.get("categorie") == "jachere":
+                        noms.append("Jachère")
+                    elif c.get("categorie") == "engrais_vert":
+                        noms.append("Engrais vert")
+                    else:
+                        n = c.get("espece") or "—"
+                        if c.get("variete"):
+                            n += f" ({c['variete']})"
+                        noms.append(n)
+                self.lbl_cultures_sys.setText(
+                    "🌱 Irrigue : " + ", ".join(noms))
+            else:
+                self.lbl_cultures_sys.setText(
+                    "⚠ Aucune culture liée à ce système — "
+                    "configurez-le depuis l'onglet Parcelles.")
+        self._calc_volume()
+
+    def _calc_volume(self):
         idx = self.combo_systeme.currentIndex()
         sys_data = self.combo_systeme.itemData(idx, Qt.UserRole + 1)
 
-        if not systeme_id or not sys_data:
+        if not sys_data:
             self.lbl_volume.setText("—")
             self.lbl_sys_info.setText("")
             return
@@ -285,7 +306,7 @@ class IrrigationPage(QWidget):
             sql = """
                 SELECT i.date_heure, p.nom, s.type_emetteur,
                        i.duree_min, i.volume_calcule_l,
-                       u.prenom || ' ' || u.nom, i.notes, i.id
+                       u.prenom || ' ' || u.nom, i.id, i.systeme_id
                 FROM irrigations i
                 JOIN parcelles p            ON p.id = i.parcelle_id
                 JOIN irrigation_systemes s  ON s.id = i.systeme_id
@@ -307,7 +328,6 @@ class IrrigationPage(QWidget):
             for row in rows:
                 r = self.table_histo.rowCount()
                 self.table_histo.insertRow(r)
-                # Formater date
                 try:
                     dt = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
                     date_fmt = dt.strftime("%d/%m/%Y %H:%M")
@@ -317,21 +337,24 @@ class IrrigationPage(QWidget):
                 self.table_histo.setItem(r, 1, QTableWidgetItem(row[1] or ""))
                 self.table_histo.setItem(r, 2,
                     QTableWidgetItem(row[2].capitalize() if row[2] else ""))
+
+                cultures = get_cultures_systeme(row[7])
+                noms = [c.get("espece") or c.get("categorie", "") for c in cultures]
+                cultures_txt = ", ".join(noms) if noms else "—"
+                self.table_histo.setItem(r, 3, QTableWidgetItem(cultures_txt))
+
                 h = row[3] // 60
                 m = row[3] % 60
-                self.table_histo.setItem(r, 3,
-                    QTableWidgetItem(f"{h}h{m:02d}"))
+                self.table_histo.setItem(r, 4, QTableWidgetItem(f"{h}h{m:02d}"))
                 vol = row[4] or 0
                 total_vol += vol
-                self.table_histo.setItem(r, 4,
-                    QTableWidgetItem(f"{vol:,.0f}"))
-                self.table_histo.setItem(r, 5, QTableWidgetItem(row[5] or ""))
-                self.table_histo.setItem(r, 6, QTableWidgetItem(row[6] or ""))
-                self.table_histo.item(r, 0).setData(Qt.UserRole, row[7])
+                self.table_histo.setItem(r, 5, QTableWidgetItem(f"{vol:,.0f}"))
+                self.table_histo.setItem(r, 6, QTableWidgetItem(row[5] or ""))
+                self.table_histo.item(r, 0).setData(Qt.UserRole, row[6])
 
             self.lbl_total.setText(
                 f"Total période : {total_vol:,.0f} L ({total_vol/1000:.1f} m³)")
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
 
     def _menu_histo(self, pos):
@@ -341,7 +364,11 @@ class IrrigationPage(QWidget):
         item = self.table_histo.item(row, 0)
         irrigation_id = item.data(Qt.UserRole)
         menu = QMenu(self)
-        menu.addAction("Supprimer cette session", lambda: self._supprimer(irrigation_id))
+        if self._peut_supprimer:
+            menu.addAction("Supprimer cette session",
+                lambda: self._supprimer(irrigation_id))
+        if menu.isEmpty():
+            return
         menu.exec(self.table_histo.viewport().mapToGlobal(pos))
 
     def _supprimer(self, irrigation_id: int):
@@ -355,15 +382,9 @@ class IrrigationPage(QWidget):
                 conn.commit()
                 cur.close()
                 self._charger_historique()
-            except Exception as e:
+            except Exception:
                 traceback.print_exc()
-    
-    def recharger_parcelles(self):
-        """
-        Appelé quand une parcelle est ajoutée/modifiée depuis ParcellePage
-        """
-        self._charger_parcelles()
-        # Recharger aussi le filtre historique
 
-        parcelle_id = self.combo_filtre_parcelle.currentData()
+    def recharger_parcelles(self):
+        self._charger_parcelles()
         self._charger_historique()

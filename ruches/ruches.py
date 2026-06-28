@@ -5,7 +5,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from db import get_connection, peut_supprimer_ruche
+from db import get_connection, peut_supprimer_ruche, peut_action
 import utils.debug as debug
 import traceback
 import re
@@ -30,9 +30,13 @@ class RuchesPage(QWidget):
     def __init__(self, current_user: dict, parent=None):
         super().__init__(parent)
         self.current_user = current_user
-        self._ruche_courante = None
+        self._peut_supprimer = peut_supprimer_ruche(current_user)
+        self._peut_ecrire    = peut_action(current_user, "ruches", "ecriture")
         self._build_ui()
-        self._charger()
+        self.btn_add_ruche.setVisible(self._peut_ecrire)
+        self.btn_nouvelle_visite.setVisible(self._peut_ecrire)
+        self._charger_ruches()
+        self._charger_visites()
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -63,9 +67,9 @@ class RuchesPage(QWidget):
         self.chk_inactives.stateChanged.connect(self._charger_ruches)
         top.addWidget(self.chk_inactives)
         top.addStretch()
-        btn_add = QPushButton("+ Ajouter une ruche")
-        btn_add.clicked.connect(lambda: self._dialog_ruche())
-        top.addWidget(btn_add)
+        self.btn_add_ruche = QPushButton("+ Ajouter une ruche")
+        self.btn_add_ruche.clicked.connect(lambda: self._dialog_ruche())
+        top.addWidget(self.btn_add_ruche)
         lay.addLayout(top)
 
         splitter = QSplitter(Qt.Horizontal)
@@ -79,6 +83,9 @@ class RuchesPage(QWidget):
         self.table_ruches.setAlternatingRowColors(True)
         self.table_ruches.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table_ruches.customContextMenuRequested.connect(self._menu_ruche)
+        self.table_ruches.cellDoubleClicked.connect(
+            lambda row, col: self._dialog_ruche(self.table_ruches.item(row, 0).data(Qt.UserRole))
+        )
         hh = self.table_ruches.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.Stretch)
         for i in range(1, 5):
@@ -510,21 +517,26 @@ class RuchesPage(QWidget):
             return
         item = self.table_ruches.item(row, 0)
         ruche_id = item.data(Qt.UserRole)
-        menu = QMenu(self)
-        menu.addAction("Modifier", lambda: self._dialog_ruche(ruche_id))
         etat = self.table_ruches.item(row, 4).text()
-        if etat == "Active":
-            menu.addAction("Désactiver",
-                lambda: self._set_actif(ruche_id, False))
-        else:
-            menu.addAction("Réactiver",
-                lambda: self._set_actif(ruche_id, True))
-        if peut_supprimer_ruche(self.current_user):
+
+        menu = QMenu(self)
+
+        if self._peut_ecrire:
+            menu.addAction("Modifier", lambda: self._dialog_ruche(ruche_id))
+            if etat == "Active":
+                menu.addAction("Désactiver",
+                    lambda: self._set_actif(ruche_id, False))
+            else:
+                menu.addAction("Réactiver",
+                    lambda: self._set_actif(ruche_id, True))
+
+        if self._peut_supprimer:
             menu.addSeparator()
             act_sup = menu.addAction("🗑 Supprimer définitivement")
-            pass
             act_sup.triggered.connect(lambda: self._supprimer_ruche(ruche_id))
-        menu.exec(self.table_ruches.viewport().mapToGlobal(pos))
+
+        if not menu.isEmpty():
+            menu.exec(self.table_ruches.viewport().mapToGlobal(pos))
 
     def _menu_visite(self, pos):
         row = self.table_visites.rowAt(pos.y())
@@ -874,8 +886,7 @@ class DialogVisite(QDialog):
             self.lbl_varroa_warn.setText("")
 
     def _ajouter_intervention(self):
-        ligne = LigneIntervention(
-            on_supprimer=self._supprimer_intervention)
+        ligne = LigneIntervention(on_supprimer=self._supprimer_intervention)
         self._lignes_intervention.append(ligne)
         # Insérer avant le bouton "+" (dernier widget)
         idx = self.interv_lay.count() - 1

@@ -4,152 +4,126 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout,
     QLabel, QLineEdit, QPushButton, QMessageBox,
-    QTabWidget, QWidget, QComboBox, QDateEdit
+    QDialogButtonBox, QWidget
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
-from views.login import authenticate, create_user, count_users, CERTIPHYTO_TYPES, verifier_cipp
+from views.login import authenticate
+import utils.debug as debug
+import traceback
 
 
 class LoginWindow(QDialog):
     """
-    Fenêtre de connexion affichée au démarrage.
-    - Si aucun utilisateur n'existe -> onglet Créer un compte en premier (premier lancement).
-    - Après connexion réussie, self.current_user contient le dict utilisateur.
+    Fenêtre de connexion.
+    - Connexion normale avec identifiant + mot de passe
+    - Si first_login=1 → dialog création mot de passe
+    - Si actif=0 → message compte désactivé
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Connexion")
-        self.setMinimumWidth(440)
+        self.setMinimumWidth(400)
         self.setModal(True)
         self.current_user = None
         self._build_ui()
 
-        if count_users() == 0:
-            self.tabs.setCurrentIndex(1)
-            QMessageBox.information(
-                self, "Premier lancement",
-                "Aucun utilisateur trouvé.\n"
-                "Veuillez créer le premier compte administrateur."
-            )
-            self.combo_role.setCurrentText("admin")
-            self.combo_role.setEnabled(False)
-
     def _build_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setSpacing(16)
 
-        title = QLabel("Gestion des cultures et fertilisants")
+        title = QLabel("🌱 Gestion des cultures et fertilisants")
         font = QFont()
-        font.setPointSize(14)
+        font.setPointSize(13)
         font.setBold(True)
         title.setFont(font)
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
-        self.tabs = QTabWidget()
-        self.tabs.addTab(self._tab_login(),    "Connexion")
-        self.tabs.addTab(self._tab_register(), "Créer un compte")
-        layout.addWidget(self.tabs)
-
-    def _tab_login(self) -> QWidget:
-        widget = QWidget()
-        form = QFormLayout(widget)
-        form.setContentsMargins(16, 16, 16, 16)
+        form = QFormLayout()
         form.setSpacing(12)
 
         self.inp_username = QLineEdit()
         self.inp_username.setPlaceholderText("Nom d'utilisateur")
+        self.inp_username.setFixedHeight(34)
         form.addRow("Identifiant :", self.inp_username)
+        lbl_first = QLabel('<a href="#" style="color:#6b7280; font-size:11px;">Première connexion ?</a>')
+        lbl_first.setTextFormat(Qt.RichText)
+        lbl_first.setAlignment(Qt.AlignRight)
+        lbl_first.linkActivated.connect(self._demander_premiere_connexion)
+        form.addRow("", lbl_first)
 
         self.inp_password = QLineEdit()
         self.inp_password.setEchoMode(QLineEdit.Password)
         self.inp_password.setPlaceholderText("Mot de passe")
+        self.inp_password.setFixedHeight(34)
         self.inp_password.returnPressed.connect(self._do_login)
         form.addRow("Mot de passe :", self.inp_password)
 
-        self.lbl_login_error = QLabel("")
-        self.lbl_login_error.setStyleSheet("color: red;")
-        form.addRow(self.lbl_login_error)
+        layout.addLayout(form)
+
+        self.lbl_error = QLabel("")
+        self.lbl_error.setStyleSheet("color: #DC2626; font-size: 12px;")
+        self.lbl_error.setAlignment(Qt.AlignCenter)
+        self.lbl_error.setWordWrap(True)
+        layout.addWidget(self.lbl_error)
 
         btn = QPushButton("Se connecter")
+        btn.setFixedHeight(38)
+        btn.setStyleSheet("""
+            QPushButton {
+                background: #16a34a; color: white;
+                border-radius: 4px; font-weight: bold; font-size: 13px;
+            }
+            QPushButton:hover { background: #15803d; }
+        """)
         btn.clicked.connect(self._do_login)
-        form.addRow(btn)
-
-        return widget
-
-    def _tab_register(self) -> QWidget:
-        widget = QWidget()
-        form = QFormLayout(widget)
-        form.setContentsMargins(16, 16, 16, 16)
-        form.setSpacing(12)
-
-        self.inp_reg_nom    = QLineEdit()
-        self.inp_reg_prenom = QLineEdit()
-        self.inp_reg_user   = QLineEdit()
-        self.inp_reg_pass   = QLineEdit()
-        self.inp_reg_pass.setEchoMode(QLineEdit.Password)
-        self.inp_reg_pass2  = QLineEdit()
-        self.inp_reg_pass2.setEchoMode(QLineEdit.Password)
-
-        # CertiPhyto
-        self.inp_reg_cipp = QLineEdit()
-        self.inp_reg_cipp.setPlaceholderText("Ex: AA-0000-000000 (facultatif)")
-        self.inp_reg_cipp.setInputMask("AA-0000-000000")
-        self.inp_reg_cipp.textChanged.connect(self._cipp_upper)
-
-        self.combo_cipp_type = QComboBox()
-        self.combo_cipp_type.addItem("— Non renseigné —", None)
-        for t in CERTIPHYTO_TYPES:
-            self.combo_cipp_type.addItem(t, t)
-
-        self.inp_cipp_expiration = QDateEdit()
-        self.inp_cipp_expiration.setDisplayFormat("dd/MM/yyyy")
-        self.inp_cipp_expiration.setCalendarPopup(True)
-        self.inp_cipp_expiration.setDate(QDate.currentDate().addYears(5))
-        self.inp_cipp_expiration.setEnabled(False)
-
-        # Activer la date seulement si un type est sélectionné
-        self.combo_cipp_type.currentIndexChanged.connect(
-            lambda i: self.inp_cipp_expiration.setEnabled(i > 0)
-        )
-
-        self.combo_role = QComboBox()
-        self.combo_role.addItems(["user", "admin"])
-
-        form.addRow("Nom :",                self.inp_reg_nom)
-        form.addRow("Prénom :",             self.inp_reg_prenom)
-        form.addRow("Identifiant :",        self.inp_reg_user)
-        form.addRow("Mot de passe :",       self.inp_reg_pass)
-        form.addRow("Confirmer mdp :",      self.inp_reg_pass2)
-
-        lbl_sep = QLabel("── CertiPhyto (facultatif) ──")
-        lbl_sep.setStyleSheet("color: gray; font-size: 11px;")
-        form.addRow(lbl_sep)
-
-        form.addRow("N° CIPP :",            self.inp_reg_cipp)
-        form.addRow("Type de certificat :", self.combo_cipp_type)
-        form.addRow("Date d'expiration :",  self.inp_cipp_expiration)
-        form.addRow("Rôle :",               self.combo_role)
-
-        self.lbl_reg_error = QLabel("")
-        self.lbl_reg_error.setStyleSheet("color: red;")
-        self.lbl_reg_error.setWordWrap(True)
-        form.addRow(self.lbl_reg_error)
-
-        btn = QPushButton("Créer le compte")
-        btn.clicked.connect(self._do_register)
-        form.addRow(btn)
-
-        return widget
+        layout.addWidget(btn)
 
     def _do_login(self):
         username = self.inp_username.text().strip()
         password = self.inp_password.text()
 
-        if not username or not password:
-            self.lbl_login_error.setText("Veuillez remplir tous les champs.")
+        if not username:
+            self.lbl_error.setText("Veuillez saisir votre identifiant.")
+            return
+
+        # Vérifier l'état du compte avant authenticate
+        try:
+            from db import get_connection
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT first_login, actif FROM users WHERE username = ?",
+                (username,))
+            row = cur.fetchone()
+            cur.close()
+
+            if row is None:
+                self.lbl_error.setText("Identifiant ou mot de passe incorrect.")
+                return
+
+            if not row[1]:  # actif = 0
+                self.lbl_error.setText(
+                    "Ce compte est désactivé.\n"
+                    "Contactez votre administrateur.")
+                return
+
+            if row[0] == 1:  # first_login
+                if not username:
+                    self.lbl_error.setText("Veuillez saisir votre identifiant.")
+                    return
+                self._dialog_premiere_connexion(username)
+                return
+
+        except Exception as e:
+            debug.debug(f"[login] Erreur vérif compte : {e}")
+
+        if not password:
+            self.lbl_error.setText("Veuillez saisir votre mot de passe.")
             return
 
         user = authenticate(username, password)
@@ -157,64 +131,110 @@ class LoginWindow(QDialog):
             self.current_user = user
             self.accept()
         else:
-            self.lbl_login_error.setText("Identifiant ou mot de passe incorrect.")
+            self.lbl_error.setText("Identifiant ou mot de passe incorrect.")
             self.inp_password.clear()
 
-    def _do_register(self):
-        import traceback
+    def _dialog_premiere_connexion(self, username: str):
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Première connexion")
+        dlg.setMinimumWidth(380)
+        lay = QVBoxLayout(dlg)
+        lay.setContentsMargins(24, 24, 24, 24)
+        lay.setSpacing(12)
+
+        lbl = QLabel(
+            f"Bienvenue !\n\n"
+            f"Créez votre mot de passe pour le compte « {username} ».")
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet("font-size: 13px;")
+        lay.addWidget(lbl)
+
+        form = QFormLayout()
+        form.setSpacing(10)
+        inp_p1 = QLineEdit()
+        inp_p1.setEchoMode(QLineEdit.Password)
+        inp_p1.setPlaceholderText("6 caractères minimum")
+        inp_p1.setFixedHeight(32)
+        inp_p2 = QLineEdit()
+        inp_p2.setEchoMode(QLineEdit.Password)
+        inp_p2.setPlaceholderText("Confirmer")
+        inp_p2.setFixedHeight(32)
+        form.addRow("Nouveau mot de passe *", inp_p1)
+        form.addRow("Confirmer *", inp_p2)
+        lbl_err = QLabel("")
+        lbl_err.setStyleSheet("color: #DC2626; font-size: 11px;")
+        form.addRow(lbl_err)
+        lay.addLayout(form)
+
+        btns = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.button(QDialogButtonBox.Ok).setText("Créer mon mot de passe")
+        btns.button(QDialogButtonBox.Ok).setStyleSheet("""
+            QPushButton { background:#16a34a; color:white;
+                border-radius:4px; padding:4px 12px; font-weight:bold; }
+            QPushButton:hover { background:#15803d; }
+        """)
+        btns.rejected.connect(dlg.reject)
+        lay.addWidget(btns)
+
+        def _valider():
+            p1 = inp_p1.text()
+            p2 = inp_p2.text()
+            if len(p1) < 6:
+                lbl_err.setText("6 caractères minimum.")
+                return
+            if p1 != p2:
+                lbl_err.setText("Les mots de passe ne correspondent pas.")
+                return
+            try:
+                from db import get_connection
+                from views.login import hash_password
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute(
+                    "UPDATE users SET password_hash=?, first_login=0 "
+                    "WHERE username=?",
+                    (hash_password(p1), username))
+                conn.commit()
+                cur.close()
+                debug.debug(f"[login] Mot de passe créé pour {username}")
+                dlg.accept()
+                user = authenticate(username, p1)
+                if user:
+                    self.current_user = user
+                    self.accept()
+            except Exception as e:
+                debug.debug(f"[login] Erreur création mdp : {e}")
+                lbl_err.setText(f"Erreur : {e}")
+
+        btns.accepted.connect(_valider)
+        inp_p2.returnPressed.connect(_valider)
+        dlg.exec()
+
+    def _demander_premiere_connexion(self):
+        username = self.inp_username.text().strip()
+        if not username:
+            self.lbl_error.setText("Saisissez d'abord votre identifiant.")
+            return
         try:
-            nom      = self.inp_reg_nom.text().strip()
-            prenom   = self.inp_reg_prenom.text().strip()
-            username = self.inp_reg_user.text().strip()
-            password = self.inp_reg_pass.text()
-            password2 = self.inp_reg_pass2.text()
-            cipp      = self.inp_reg_cipp.text().strip() or None
-            cipp_type = self.combo_cipp_type.currentData()
-            cipp_exp  = (self.inp_cipp_expiration.date().toPython()
-                        if cipp_type else None)
-            role      = self.combo_role.currentText()
-
-            if not all([nom, prenom, username, password]):
-                self.lbl_reg_error.setText(
-                    "Nom, prénom, identifiant et mot de passe sont obligatoires.")
+            from db import get_connection
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT first_login, actif FROM users WHERE username = ?",
+                (username,))
+            row = cur.fetchone()
+            cur.close()
+            if not row:
+                self.lbl_error.setText("Identifiant introuvable.")
                 return
-
-            if password != password2:
-                self.lbl_reg_error.setText("Les mots de passe ne correspondent pas.")
+            if not row[1]:
+                self.lbl_error.setText("Ce compte est désactivé.")
                 return
-            
-            if cipp:
-                if not verifier_cipp(cipp):
-                    self.lbl_reg_error.setText(
-                        "Le numéro CIPP doit être au format AA-0000-000000."
-                    )
-                    return
-
-            if len(password) < 6:
-                self.lbl_reg_error.setText(
-                    "Le mot de passe doit faire au moins 6 caractères.")
+            if row[0] != 1:
+                self.lbl_error.setText(
+                    "Ce compte a déjà un mot de passe défini.")
                 return
-
-            ok, msg = create_user(nom, prenom, username, password,
-                                cipp, cipp_type, cipp_exp, role)
-            if ok:
-                QMessageBox.information(
-                    self, "Compte créé",
-                    f"Compte '{username}' créé avec succès.\n"
-                    + (f"Certificat : {cipp_type}" if cipp_type else
-                    "Aucun certificat renseigné — accès PPP limité à la lecture.")
-                )
-                self.current_user = authenticate(username, password)
-                self.accept()
-            else:
-                self.lbl_reg_error.setText(msg)
+            self._dialog_premiere_connexion(username)
         except Exception as e:
-            traceback.print_exc()
-            self.lbl_reg_error.setText(f"Erreur lors de la création du compte : {e}")
-
-    def _cipp_upper(self, text):
-        pos = self.inp_reg_cipp.cursorPosition()
-        self.inp_reg_cipp.blockSignals(True)
-        self.inp_reg_cipp.setText(text.upper())
-        self.inp_reg_cipp.setCursorPosition(pos)
-        self.inp_reg_cipp.blockSignals(False)
+            self.lbl_error.setText(f"Erreur : {e}")
