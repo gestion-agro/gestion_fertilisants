@@ -284,6 +284,11 @@ class CarnetPage(QWidget):
         filtre.addWidget(QLabel("au :")); filtre.addWidget(self.inp_histo_fin)
         filtre.addWidget(QLabel("Culture :")); filtre.addWidget(self.combo_histo_culture)
         filtre.addStretch()
+
+        self.btn_export_bio = QPushButton("📄 Export PDF contrôleur")
+        self.btn_export_bio.clicked.connect(self._exporter_pdf_controleur)
+        filtre.addWidget(self.btn_export_bio)
+
         layout.addLayout(filtre)
 
         self.scroll_histo = QScrollArea()
@@ -478,6 +483,32 @@ class CarnetPage(QWidget):
         except Exception as e:
             debug.debug(f"[carnet] Erreur _charger_historique : {e}")
             traceback.print_exc()
+
+    def _exporter_pdf_controleur(self):
+        from PySide6.QtWidgets import QFileDialog
+        from datetime import datetime as _dt
+
+        date_debut = self.inp_histo_debut.date().toString("yyyy-MM-dd")
+        date_fin = self.inp_histo_fin.date().toString("yyyy-MM-dd")
+
+        nom_defaut = (f"carnet_traitements_"
+                      f"{self.inp_histo_debut.date().toString('yyyyMMdd')}_"
+                      f"{self.inp_histo_fin.date().toString('yyyyMMdd')}.pdf")
+        chemin, _ = QFileDialog.getSaveFileName(
+            self, "Exporter le carnet pour le contrôleur",
+            nom_defaut, "Fichiers PDF (*.pdf)")
+        if not chemin:
+            return
+
+        try:
+            from ppp.export_bio import exporter_carnet_bio_pdf
+            exporter_carnet_bio_pdf(date_debut, date_fin, chemin)
+            QMessageBox.information(self, "Export réussi",
+                f"Le carnet a été exporté :\n{chemin}")
+        except Exception as e:
+            debug.debug(f"[carnet] Erreur export PDF : {e}")
+            traceback.print_exc()
+            QMessageBox.critical(self, "Erreur d'export", str(e))
 
     def _annuler_decision(self, decision_id: int):
         debug.debug(f"[carnet] _annuler_decision({decision_id})")
@@ -693,7 +724,7 @@ class CarteAFaire(QFrame):
 
         if d.get("notes_decideur"):
             lbl_notes = QLabel(f"Note décideur : {d['notes_decideur']}")
-            lbl_notes.setStyleSheet("font-size: 12px; font-style: italic; color: #57534e;")
+            lbl_notes.setStyleSheet("font-size: 12px; font-style: italic; color: #44403c;")
             lbl_notes.setWordWrap(True)
             layout.addWidget(lbl_notes)
 
@@ -913,6 +944,29 @@ class DialogDecision(QDialog):
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if rep == QMessageBox.No:
                 return
+
+        from db import est_exploitation_bio
+        if est_exploitation_bio():
+            cur_bio = get_connection().cursor()
+            cur_bio.execute(
+                "SELECT bio_compatible FROM ppp_produits WHERE id=?",
+                (produit_id,))
+            row_bio = cur_bio.fetchone()
+            cur_bio.close()
+            if row_bio and not row_bio[0]:
+                rep = QMessageBox.warning(
+                    self, "⚠ Produit non autorisé en agriculture biologique",
+                    "Votre exploitation est déclarée en agriculture biologique, "
+                    "mais ce produit n'est PAS certifié bio-compatible.\n\n"
+                    "Réglementairement, son usage peut être toléré uniquement si "
+                    "sa substance active figure sur la liste des dérogations "
+                    "(annexe II du règlement bio / « dérogations 120 jours »), "
+                    "et SOUS RÉSERVE d'en informer préalablement votre organisme "
+                    "certificateur en précisant les parcelles concernées.\n\n"
+                    "Confirmer malgré tout ?",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if rep == QMessageBox.No:
+                    return
 
         try:
             conn = get_connection()
@@ -1247,7 +1301,7 @@ class DialogDecisionPreRempli(QDialog):
         if p.get("condition_usage"):
             lbl_cond = QLabel(p["condition_usage"])
             lbl_cond.setWordWrap(True)
-            lbl_cond.setStyleSheet("font-size: 11px; color: palette(mid);")
+            lbl_cond.setStyleSheet("font-size: 11px; color: #57534e;")
             recap_lay.addRow("Condition usage :", lbl_cond)
         layout.addWidget(recap)
 
@@ -1272,9 +1326,6 @@ class DialogDecisionPreRempli(QDialog):
         dose_lay = QHBoxLayout(dose_w)
         dose_lay.setContentsMargins(0, 0, 0, 0)
         self.inp_dose = QDoubleSpinBox()
-
-        self.inp_dose.setAutoFillBackground(True)
-
         self.inp_dose.setRange(0.01, 9999)
         self.inp_dose.setDecimals(2)
         if dose_max:
@@ -1372,7 +1423,7 @@ class DialogDecisionPreRempli(QDialog):
         if self.dose_max and dose > self.dose_max:
             self.lbl_dose_warn.setText(f"⚠ Dépasse la dose max ({self.dose_max})")
             pal = self.inp_dose.palette()
-            pal.setColor(QPalette.Base, QColor("#FEE2E2"))
+            pal.setColor(QPalette.Base, QColor("#FEE2E2"))  # rouge
             self.inp_dose.setPalette(pal)
         else:
             self.lbl_dose_warn.setText("")
@@ -1443,6 +1494,29 @@ class DialogDecisionPreRempli(QDialog):
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if rep == QMessageBox.No:
                 return
+
+        from db import est_exploitation_bio
+        if est_exploitation_bio():
+            cur_bio = get_connection().cursor()
+            cur_bio.execute(
+                "SELECT bio_compatible FROM ppp_produits WHERE id=?",
+                (self.produit_id,))
+            row_bio = cur_bio.fetchone()
+            cur_bio.close()
+            if row_bio and not row_bio[0]:
+                rep = QMessageBox.warning(
+                    self, "⚠ Produit non autorisé en agriculture biologique",
+                    "Votre exploitation est déclarée en agriculture biologique, "
+                    "mais ce produit n'est PAS certifié bio-compatible.\n\n"
+                    "Réglementairement, son usage peut être toléré uniquement si "
+                    "sa substance active figure sur la liste des dérogations "
+                    "(annexe II du règlement bio / « dérogations 120 jours »), "
+                    "et SOUS RÉSERVE d'en informer préalablement votre organisme "
+                    "certificateur en précisant les parcelles concernées.\n\n"
+                    "Confirmer malgré tout ?",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if rep == QMessageBox.No:
+                    return
 
         if self.dose_max and dose > self.dose_max:
             rep = QMessageBox.warning(self, "Dose supérieure au maximum",

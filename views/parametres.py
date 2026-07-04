@@ -6,7 +6,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
-from db import get_connection, DB_FILE
+from db import get_connection, DB_FILE, get_parametres_app, set_parametres_app
 import utils.debug as debug
 import traceback
 
@@ -127,7 +127,100 @@ class ParametresPage(QWidget):
         lay2.addStretch()
         tabs.addTab(tab_connexion, "Connexion")
 
+        # ── Onglet Application (admin uniquement) ──
+        if self.current_user.get("role") == "admin":
+            tab_app = self._build_tab_application()
+            tabs.addTab(tab_app, "Application")
+
         root.addWidget(tabs, 1)
+
+    def _build_tab_application(self) -> QWidget:
+        widget = QWidget()
+        lay = QVBoxLayout(widget)
+        lay.setContentsMargins(16, 16, 16, 16)
+        lay.setSpacing(16)
+
+        # ── Réglages planches/passe-pied/tolérance ──
+        group_culture = QGroupBox("Valeurs par défaut — Cultures")
+        gc_lay = QFormLayout(group_culture)
+        gc_lay.setSpacing(10)
+
+        self.inp_largeur_planche = QDoubleSpinBox()
+        self.inp_largeur_planche.setRange(0.10, 10)
+        self.inp_largeur_planche.setDecimals(2)
+        self.inp_largeur_planche.setSuffix(" m")
+        gc_lay.addRow("Largeur de planche par défaut", self.inp_largeur_planche)
+
+        self.inp_passe_pied = QDoubleSpinBox()
+        self.inp_passe_pied.setRange(0, 5)
+        self.inp_passe_pied.setDecimals(2)
+        self.inp_passe_pied.setSuffix(" m")
+        gc_lay.addRow("Passe-pied par défaut", self.inp_passe_pied)
+
+        self.inp_tolerance = QDoubleSpinBox()
+        self.inp_tolerance.setRange(0, 50)
+        self.inp_tolerance.setDecimals(1)
+        self.inp_tolerance.setSuffix(" %")
+        gc_lay.addRow("Tolérance calcul NPK (mode auto)", self.inp_tolerance)
+
+        info_tol = QLabel(
+            "Marge acceptée entre les besoins NPK demandés et la dose "
+            "calculée automatiquement. Une valeur trop basse peut rendre "
+            "le calcul automatique impossible avec un stock limité.")
+        info_tol.setWordWrap(True)
+        info_tol.setStyleSheet("color: palette(mid); font-size: 11px;")
+        gc_lay.addRow(info_tol)
+
+        lay.addWidget(group_culture)
+
+        # ── Export PDF contrôleur bio ──
+        group_export = QGroupBox("Export PDF carnet — Contrôleur bio")
+        ge_lay = QVBoxLayout(group_export)
+        ge_lay.setSpacing(8)
+
+        info_export = QLabel(
+            "Colonnes incluses dans l'export PDF du carnet de traitements "
+            "(Date, Parcelle, Culture, Produit, Dose, Opérateur et Signature "
+            "sont toujours inclus).")
+        info_export.setWordWrap(True)
+        info_export.setStyleSheet("color: palette(mid); font-size: 11px;")
+        ge_lay.addWidget(info_export)
+
+        self.chk_export_amm = QCheckBox("N° AMM du produit")
+        self.chk_export_dar = QCheckBox("DAR (délai avant récolte)")
+        self.chk_export_bio_agr = QCheckBox("Bio-agresseur ciblé")
+        self.chk_export_meteo = QCheckBox("Conditions météo (T°, vent, nébulosité)")
+        self.chk_export_epi = QCheckBox("EPI utilisés")
+
+        for chk in (self.chk_export_amm, self.chk_export_dar,
+                    self.chk_export_bio_agr, self.chk_export_meteo,
+                    self.chk_export_epi):
+            ge_lay.addWidget(chk)
+
+        orientation_w = QWidget()
+        orientation_lay = QHBoxLayout(orientation_w)
+        orientation_lay.setContentsMargins(0, 4, 0, 0)
+        orientation_lay.addWidget(QLabel("Orientation de la page :"))
+        self.combo_orientation = QComboBox()
+        self.combo_orientation.addItem("Portrait", "portrait")
+        self.combo_orientation.addItem("Paysage", "paysage")
+        orientation_lay.addWidget(self.combo_orientation)
+        orientation_lay.addStretch()
+        ge_lay.addWidget(orientation_w)
+
+        lay.addWidget(group_export)
+
+        btn_save = QPushButton("Enregistrer les paramètres")
+        btn_save.setStyleSheet("""
+            QPushButton { background:#16a34a; color:white;
+                border-radius:4px; padding:6px 16px; font-weight:bold; }
+            QPushButton:hover { background:#15803d; }
+        """)
+        btn_save.clicked.connect(self._sauver_parametres_app)
+        lay.addWidget(btn_save)
+
+        lay.addStretch()
+        return widget
 
     def _charger(self):
         u = self.current_user
@@ -161,14 +254,29 @@ class ParametresPage(QWidget):
                 for row in rows:
                     label = f"{row[2]} {row[3]} ({row[1]})"
                     self.combo_default_user.addItem(label, row[1])
-                # Sélectionner le user actuel dans la config
                 current_default = cfg.get("auto_login_username")
                 if current_default:
                     idx = self.combo_default_user.findData(current_default)
                     if idx >= 0:
                         self.combo_default_user.setCurrentIndex(idx)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc()
+
+        # Paramètres app (admin)
+        if self.current_user.get("role") == "admin" and hasattr(self, "inp_largeur_planche"):
+            params = get_parametres_app()
+            self.inp_largeur_planche.setValue(params.get("largeur_planche_defaut", 1.20))
+            self.inp_passe_pied.setValue(params.get("passe_pied_defaut", 0.40))
+            self.inp_tolerance.setValue(params.get("tolerance_npk_pct", 2.0))
+            self.chk_export_amm.setChecked(bool(params.get("export_inclure_amm")))
+            self.chk_export_dar.setChecked(bool(params.get("export_inclure_dar")))
+            self.chk_export_bio_agr.setChecked(bool(params.get("export_inclure_bio_agr")))
+            self.chk_export_meteo.setChecked(bool(params.get("export_inclure_meteo")))
+            self.chk_export_epi.setChecked(bool(params.get("export_inclure_epi")))
+            idx_orient = self.combo_orientation.findData(
+                params.get("export_orientation", "portrait"))
+            if idx_orient >= 0:
+                self.combo_orientation.setCurrentIndex(idx_orient)
 
     def _on_auto_changed(self, state):
         cfg = lire_config()
@@ -193,6 +301,39 @@ class ParametresPage(QWidget):
         ecrire_config(cfg)
         QMessageBox.information(self, "OK",
             f"Utilisateur par défaut : {username or 'aucun'}.")
+
+    def _sauver_parametres_app(self):
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE parametres_app SET
+                    largeur_planche_defaut=?, passe_pied_defaut=?,
+                    tolerance_npk_pct=?, export_inclure_amm=?,
+                    export_inclure_dar=?, export_inclure_bio_agr=?,
+                    export_inclure_meteo=?, export_inclure_epi=?,
+                    export_orientation=?
+                WHERE id=1
+            """, (
+                self.inp_largeur_planche.value(),
+                self.inp_passe_pied.value(),
+                self.inp_tolerance.value(),
+                1 if self.chk_export_amm.isChecked() else 0,
+                1 if self.chk_export_dar.isChecked() else 0,
+                1 if self.chk_export_bio_agr.isChecked() else 0,
+                1 if self.chk_export_meteo.isChecked() else 0,
+                1 if self.chk_export_epi.isChecked() else 0,
+                self.combo_orientation.currentData(),
+            ))
+            conn.commit()
+            cur.close()
+            debug.debug("[parametres] Paramètres application enregistrés")
+            QMessageBox.information(self, "Enregistré",
+                "Paramètres de l'application mis à jour.")
+        except Exception as e:
+            debug.debug(f"[parametres] Erreur sauvegarde : {e}")
+            traceback.print_exc()
+            QMessageBox.critical(self, "Erreur", str(e))
 
     def _changer_mdp(self):
         from admin.admin import DialogMdp

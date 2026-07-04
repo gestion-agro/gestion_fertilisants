@@ -18,14 +18,36 @@ import traceback
 
 
 def make_cbc_executable():
-    solverdir = os.path.join(os.path.dirname(pulp.__file__), "solverdir")
-    cbc_path = os.path.join(solverdir, "cbc", "linux", "i64", "cbc")
+    """Localise et rend exécutable le binaire CBC, que l'app tourne
+    en script Python normal (venv) ou packagée en exécutable PyInstaller
+    (les fichiers sont alors extraits dans sys._MEIPASS)."""
+    import sys
+
+    # Mode PyInstaller : les fichiers collectés sont dans _MEIPASS
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base_dir = sys._MEIPASS
+    else:
+        base_dir = os.path.dirname(pulp.__file__)
+
+    solverdir = os.path.join(base_dir, "solverdir")
+
+    if sys.platform.startswith("linux"):
+        cbc_path = os.path.join(solverdir, "cbc", "linux", "i64", "cbc")
+    elif sys.platform == "win32":
+        cbc_path = os.path.join(solverdir, "cbc", "win", "i64", "cbc.exe")
+    elif sys.platform == "darwin":
+        cbc_path = os.path.join(solverdir, "cbc", "osx", "i64", "cbc")
+    else:
+        cbc_path = os.path.join(solverdir, "cbc", "linux", "i64", "cbc")
+
     if os.path.exists(cbc_path):
-        st = os.stat(cbc_path)
-        os.chmod(cbc_path, st.st_mode | stat.S_IEXEC)
+        if sys.platform != "win32":
+            st = os.stat(cbc_path)
+            os.chmod(cbc_path, st.st_mode | stat.S_IEXEC)
         debug.debug(f"[ferti] CBC rendu exécutable : {cbc_path}")
         return cbc_path
-    debug.debug("[ferti] ⚠ CBC non trouvé")
+
+    debug.debug(f"[ferti] ⚠ CBC non trouvé (cherché : {cbc_path})")
     return None
 
 

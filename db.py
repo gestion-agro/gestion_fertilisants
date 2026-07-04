@@ -56,7 +56,13 @@ _TABLES = [
         id                      INTEGER PRIMARY KEY CHECK(id = 1),
         largeur_planche_defaut  REAL NOT NULL DEFAULT 1.20,
         passe_pied_defaut       REAL NOT NULL DEFAULT 0.40,
-        tolerance_npk_pct       REAL NOT NULL DEFAULT 2.0
+        tolerance_npk_pct       REAL NOT NULL DEFAULT 2.0,
+        export_inclure_amm        INTEGER NOT NULL DEFAULT 0,
+        export_inclure_dar        INTEGER NOT NULL DEFAULT 0,
+        export_inclure_bio_agr    INTEGER NOT NULL DEFAULT 0,
+        export_inclure_meteo      INTEGER NOT NULL DEFAULT 0,
+        export_inclure_epi        INTEGER NOT NULL DEFAULT 0,
+        export_orientation        TEXT NOT NULL DEFAULT 'portrait'
     );
     """,
     # ── Utilisateurs ──────────────────────────
@@ -439,6 +445,12 @@ _MIGRATIONS = {
     ],
     "parametres_app": [
         ("tolerance_npk_pct", "REAL NOT NULL DEFAULT 2.0"),
+        ("export_inclure_amm",     "INTEGER NOT NULL DEFAULT 0"),
+        ("export_inclure_dar",     "INTEGER NOT NULL DEFAULT 0"),
+        ("export_inclure_bio_agr", "INTEGER NOT NULL DEFAULT 0"),
+        ("export_inclure_meteo",   "INTEGER NOT NULL DEFAULT 0"),
+        ("export_inclure_epi",     "INTEGER NOT NULL DEFAULT 0"),
+        ("export_orientation",     "TEXT NOT NULL DEFAULT 'portrait'"),
     ],
 }
 
@@ -1047,6 +1059,14 @@ def set_npk_culture_ref(nom_espece: str, n: float, p: float, k: float):
         debug.debug(f"[DB] NPK mis à jour pour {nom} : N={n} P={p} K={k}")
     except Exception as e:
         debug.debug(f"[DB] Erreur set_npk_culture_ref : {e}")
+
+
+# ── Helper exploitation bio ───────────────────
+def est_exploitation_bio() -> bool:
+    """Une exploitation est considérée bio si num_bio est renseigné
+    dans la fiche entreprise."""
+    ent = get_entreprise()
+    return bool(ent.get("num_bio"))
 
 
 # ── Catalogue Fertilisants enrichi ────────────

@@ -19,6 +19,8 @@ class AideDecision(QWidget):
     def __init__(self, current_user: dict, parent=None):
         super().__init__(parent)
         self.current_user = current_user
+        from db import est_exploitation_bio
+        self._est_bio = est_exploitation_bio()
         self._build_ui()
         self._charger_cultures()
 
@@ -61,7 +63,18 @@ class AideDecision(QWidget):
         self.combo_mode.addItem("Bio et conventionnel", None)
         self.combo_mode.addItem("Bio uniquement", "bio")
         self.combo_mode.addItem("Conventionnel uniquement", "conventionnel")
+        if self._est_bio:
+            self.combo_mode.setCurrentIndex(
+                self.combo_mode.findData("bio"))
         form.addWidget(self.combo_mode, 1, 1)
+
+        if self._est_bio:
+            lbl_bio_info = QLabel(
+                "🌱 Exploitation certifiée bio — mode \"Bio uniquement\" "
+                "sélectionné par défaut (modifiable).")
+            lbl_bio_info.setStyleSheet(
+                "color:#16a34a; font-size:11px; font-style:italic;")
+            form.addWidget(lbl_bio_info, 3, 0, 1, 4)
 
         # Seuil de dégâts (optionnel)
         form.addWidget(QLabel("Seuil de dégâts (optionnel)"), 1, 2)
@@ -107,9 +120,6 @@ class AideDecision(QWidget):
         hh.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         hh.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         self.table_results.itemSelectionChanged.connect(self._on_produit_changed)
-        self.table_results.cellDoubleClicked.connect(
-            lambda row, col: self._utiliser_produit()
-        )
         results_layout.addWidget(self.table_results)
         vsplit.addWidget(results_group)
 

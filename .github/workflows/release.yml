@@ -51,6 +51,8 @@ jobs:
             --hidden-import charset_normalizer \
             --hidden-import chardet \
             --hidden-import _bootlocale \
+            --hidden-import pulp \
+            --collect-all pulp \
             --collect-all cvxpy \
             --collect-all osqp \
             --collect-all ecos \
@@ -99,6 +101,8 @@ jobs:
             --hidden-import bcrypt \
             --hidden-import charset_normalizer \
             --hidden-import chardet \
+            --hidden-import pulp \
+            --collect-all pulp \
             --collect-all cvxpy \
             --collect-all osqp \
             --collect-all ecos \
@@ -159,6 +163,8 @@ jobs:
             --hidden-import bcrypt \
             --hidden-import charset_normalizer \
             --hidden-import chardet \
+            --hidden-import pulp \
+            --collect-all pulp \
             --collect-all cvxpy \
             --collect-all osqp \
             --collect-all ecos \

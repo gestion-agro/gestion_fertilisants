@@ -448,6 +448,23 @@ class DialogApportFerti(QDialog):
                 "Ajoutez au moins un fertilisant avec une dose.")
             return
 
+        from db import est_exploitation_bio
+        if est_exploitation_bio():
+            non_uab = [d.get("nom_fert") for d in lignes_data
+                      if not d.get("uab")]
+            non_uab = [n for n in non_uab if n]
+            if non_uab:
+                rep = QMessageBox.warning(
+                    self, "⚠ Fertilisant non autorisé en agriculture biologique",
+                    "Votre exploitation est déclarée en agriculture biologique, "
+                    "mais le(s) fertilisant(s) suivant(s) ne sont PAS certifiés "
+                    "UAB :\n\n" + "\n".join(f"• {n}" for n in non_uab) +
+                    "\n\nL'utilisation de ce produit pourrait remettre en cause "
+                    "votre certification bio.\n\nConfirmer malgré tout ?",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if rep == QMessageBox.No:
+                    return
+
         date_apport = self.inp_date.date().toString("yyyy-MM-dd")
         culture_id = self.combo_culture.currentData()
         methode = self.inp_methode.text().strip() or None
@@ -473,12 +490,7 @@ class DialogApportFerti(QDialog):
                       d["potassium_kg"], methode, notes))
             conn.commit()
             cur.close()
-
-            from db import decrementer_stock_fertilisant
-            for d in lignes_data:
-                decrementer_stock_fertilisant(d["fertilisant_id"], d["dose_kg"])
-
-            debug.debug(f"[carnet_ferti] {len(lignes_data)} apport(s) enregistré(s), stock décompté")
+            debug.debug(f"[carnet_ferti] {len(lignes_data)} apport(s) enregistré(s)")
             self.accept()
         except Exception as e:
             traceback.print_exc()
@@ -509,19 +521,24 @@ class LigneApport(QFrame):
         lay.setContentsMargins(8, 6, 8, 6)
         lay.setSpacing(8)
 
+        from db import est_exploitation_bio
+        self._est_bio = est_exploitation_bio()
+
         self.combo_fert = QComboBox()
         self.combo_fert.setMinimumWidth(180)
         try:
             conn = get_connection()
             cur = conn.cursor()
-            cur.execute("SELECT id, nom, n, p, k, origine FROM fertilisants ORDER BY nom")
+            cur.execute("SELECT id, nom, n, p, k, origine, uab FROM fertilisants ORDER BY nom")
             for row in cur.fetchall():
-                self.combo_fert.addItem(row[1], dict(
-                    id=row[0], n=row[2], p=row[3], k=row[4], origine=row[5]))
+                label = row[1] if row[5] else f"⚠ {row[1]} (non UAB)"
+                self.combo_fert.addItem(label, dict(
+                    id=row[0], n=row[2], p=row[3], k=row[4],
+                    origine=row[5], uab=row[6]))
             cur.close()
         except Exception:
             traceback.print_exc()
-        self.combo_fert.currentIndexChanged.connect(lambda: self.dose_modifiee.emit())
+        self.combo_fert.currentIndexChanged.connect(self._on_fert_changed)
         lay.addWidget(self.combo_fert, 1)
 
         self.inp_dose = QDoubleSpinBox()
@@ -541,6 +558,15 @@ class LigneApport(QFrame):
         btn_sup.clicked.connect(lambda: self.on_supprimer(self))
         lay.addWidget(btn_sup)
 
+    def _on_fert_changed(self):
+        fert = self.combo_fert.currentData()
+        if self._est_bio and fert and not fert.get("uab"):
+            self.combo_fert.setStyleSheet(
+                "QComboBox { background:#FEE2E2; color:#DC2626; }")
+        else:
+            self.combo_fert.setStyleSheet("")
+        self.dose_modifiee.emit()
+
     def get_data(self) -> dict | None:
         fert = self.combo_fert.currentData()
         dose = self.inp_dose.value()
@@ -548,6 +574,8 @@ class LigneApport(QFrame):
             return None
         return {
             "fertilisant_id": fert["id"],
+            "nom_fert": self.combo_fert.currentText().replace("⚠ ", "").replace(" (non UAB)", ""),
+            "uab": fert.get("uab"),
             "dose_kg": dose,
             "azote_kg": dose * fert["n"] / 100,
             "phosphore_kg": dose * fert["p"] / 100,
