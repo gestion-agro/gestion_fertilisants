@@ -150,28 +150,64 @@ class SetupWizard(QDialog):
         lbl_titre.setFont(f)
         form.addRow(lbl_titre)
 
-        self.ent_nom       = QLineEdit()
+        self.ent_nom = QLineEdit()
         self.ent_nom.setPlaceholderText("EARL Dupont, GAEC Les Jardins...")
-        self.ent_siret     = QLineEdit()
+
+        # SIRET : 14 chiffres uniquement
+        self.ent_siret = QLineEdit()
         self.ent_siret.setMaxLength(14)
         self.ent_siret.setPlaceholderText("14 chiffres")
-        self.ent_adresse   = QLineEdit()
-        self.ent_cp        = QLineEdit()
+        self.ent_siret.setValidator(
+            QRegularExpressionValidator(QRegularExpression(r"^\d{0,14}$")))
+
+        self.ent_adresse = QLineEdit()
+
+        self.ent_cp = QLineEdit()
         self.ent_cp.setMaxLength(5)
         self.ent_cp.setFixedWidth(80)
-        self.ent_ville     = QLineEdit()
-        self.ent_tel       = QLineEdit()
-        self.ent_email     = QLineEdit()
-        self.ent_num_tva   = QLineEdit()
+        self.ent_cp.setValidator(
+            QRegularExpressionValidator(QRegularExpression(r"^\d{0,5}$")))
+
+        self.ent_ville = QLineEdit()
+
+        # Téléphone : +33 figé + 9 chiffres
+        tel_w = QWidget()
+        tel_lay = QHBoxLayout(tel_w)
+        tel_lay.setContentsMargins(0, 0, 0, 0)
+        tel_lay.setSpacing(4)
+        lbl_indicatif = QLabel("+33")
+        lbl_indicatif.setStyleSheet(
+            "background: #f3f4f6; border: 1px solid #d1d5db; "
+            "border-radius: 3px; padding: 4px 8px; color: #374151;")
+        lbl_indicatif.setFixedWidth(40)
+        self.ent_tel = QLineEdit()
+        self.ent_tel.setMaxLength(9)
+        self.ent_tel.setPlaceholderText("9 chiffres (sans le 0 initial)")
+        self.ent_tel.setValidator(
+            QRegularExpressionValidator(QRegularExpression(r"^\d{0,9}$")))
+        tel_lay.addWidget(lbl_indicatif)
+        tel_lay.addWidget(self.ent_tel)
+
+        self.ent_email = QLineEdit()
+
+        # N° TVA : FR + 11 chiffres (13 caractères)
+        self.ent_num_tva = QLineEdit()
         self.ent_num_tva.setMaxLength(13)
-        self.ent_num_bio   = QLineEdit()
+        self.ent_num_tva.setPlaceholderText("FR + 11 chiffres (ex: FR12345678910)")
+        self.ent_num_tva.setValidator(
+            QRegularExpressionValidator(
+                QRegularExpression(r"^(FR)?\d{0,11}$", QRegularExpression.CaseInsensitiveOption)))
+
+        # N° agrément bio : format libre mais borné
+        self.ent_num_bio = QLineEdit()
         self.ent_num_bio.setMaxLength(50)
-        self.ent_num_bio.setPlaceholderText("Si agriculture biologique")
+        self.ent_num_bio.setPlaceholderText("Ex: FR-BIO-01-12345 (si agriculture biologique)")
+
         self.ent_org_certif = QLineEdit()
         self.ent_org_certif.setPlaceholderText("Ex: Ecocert, Bureau Veritas...")
 
         cp_ville = QWidget()
-        cp_lay   = QHBoxLayout(cp_ville)
+        cp_lay = QHBoxLayout(cp_ville)
         cp_lay.setContentsMargins(0, 0, 0, 0)
         cp_lay.addWidget(self.ent_cp)
         cp_lay.addWidget(self.ent_ville)
@@ -180,7 +216,7 @@ class SetupWizard(QDialog):
         form.addRow("SIRET",              self.ent_siret)
         form.addRow("Adresse",            self.ent_adresse)
         form.addRow("CP / Ville",         cp_ville)
-        form.addRow("Téléphone",          self.ent_tel)
+        form.addRow("Téléphone",          tel_w)
         form.addRow("Email",              self.ent_email)
         form.addRow("N° TVA",             self.ent_num_tva)
         form.addRow("N° agrément bio",    self.ent_num_bio)
@@ -212,7 +248,7 @@ class SetupWizard(QDialog):
 
         # Type d'exploitation
         types_group = QGroupBox("Production principale *")
-        types_lay   = QVBoxLayout(types_group)
+        types_lay = QVBoxLayout(types_group)
         types_lay.setSpacing(8)
 
         self.chk_maraichage   = QCheckBox("Maraîchage")
@@ -225,7 +261,7 @@ class SetupWizard(QDialog):
 
         # Ruches
         ruches_group = QGroupBox("Apiculture")
-        ruches_lay   = QVBoxLayout(ruches_group)
+        ruches_lay = QVBoxLayout(ruches_group)
 
         self.chk_ruches = QCheckBox("Mon exploitation possède des ruches")
         self.chk_ruches.setStyleSheet("font-size: 13px;")
@@ -238,11 +274,19 @@ class SetupWizard(QDialog):
         ri_lay.setContentsMargins(20, 8, 0, 0)
         ri_lay.setSpacing(8)
 
-        self.ent_napi     = QLineEdit()
+        # NAPI : 12 caractères alphanumériques (lettres + chiffres)
+        self.ent_napi = QLineEdit()
         self.ent_napi.setMaxLength(12)
-        self.ent_napi.setPlaceholderText("N° NAPI de l'exploitation")
+        self.ent_napi.setPlaceholderText("12 caractères (ex: A5218882)")
+        self.ent_napi.setValidator(
+            QRegularExpressionValidator(
+                QRegularExpression(r"^[A-Za-z0-9]{0,12}$")))
 
-        ri_lay.addRow("N° NAPI *",    self.ent_napi)
+        napi_info = QLabel("Format : 1-2 lettres + chiffres, 12 caractères max")
+        napi_info.setStyleSheet("color: #9ca3af; font-size: 11px;")
+
+        ri_lay.addRow("N° NAPI *", self.ent_napi)
+        ri_lay.addRow("", napi_info)
         self.w_ruches_infos.setVisible(False)
         ruches_lay.addWidget(self.w_ruches_infos)
         lay.addWidget(ruches_group)
@@ -283,11 +327,11 @@ class SetupWizard(QDialog):
         self.acc_mdp2.setEchoMode(QLineEdit.Password)
         self.acc_mdp2.setPlaceholderText("Confirmer le mot de passe")
 
-        form.addRow("Prénom *",               self.acc_prenom)
-        form.addRow("Nom *",                  self.acc_nom)
-        form.addRow("Identifiant *",          self.acc_username)
-        form.addRow("Mot de passe *",         self.acc_mdp)
-        form.addRow("Confirmer mdp *",        self.acc_mdp2)
+        form.addRow("Prénom *",       self.acc_prenom)
+        form.addRow("Nom *",          self.acc_nom)
+        form.addRow("Identifiant *",  self.acc_username)
+        form.addRow("Mot de passe *", self.acc_mdp)
+        form.addRow("Confirmer mdp *", self.acc_mdp2)
 
         self.lbl_err = QLabel("")
         self.lbl_err.setStyleSheet("color: red;")
@@ -323,11 +367,31 @@ class SetupWizard(QDialog):
             self._update_steps()
 
     def _next(self):
-        # Validation par page
         if self._current == 1:
             if not self.ent_nom.text().strip():
                 QMessageBox.warning(self, "Champ manquant",
                     "Le nom de l'exploitation est obligatoire.")
+                return
+            # Validation SIRET longueur exacte si renseigné
+            siret = self.ent_siret.text().strip()
+            if siret and len(siret) != 14:
+                QMessageBox.warning(self, "SIRET invalide",
+                    "Le numéro SIRET doit contenir exactement 14 chiffres.")
+                return
+            # Validation TVA si renseigné
+            tva = self.ent_num_tva.text().strip().upper()
+            if tva:
+                tva_chiffres = tva.lstrip("FR")
+                if not tva_chiffres.isdigit() or len(tva_chiffres) != 11:
+                    QMessageBox.warning(self, "N° TVA invalide",
+                        "Le numéro de TVA doit être au format FR + 11 chiffres.")
+                    return
+            # Téléphone : 9 chiffres si renseigné
+            tel = self.ent_tel.text().strip()
+            if tel and len(tel) != 9:
+                QMessageBox.warning(self, "Téléphone invalide",
+                    "Le numéro de téléphone doit contenir 9 chiffres "
+                    "(après l'indicatif +33).")
                 return
 
         if self._current == 2:
@@ -336,11 +400,16 @@ class SetupWizard(QDialog):
                 QMessageBox.warning(self, "Champ manquant",
                     "Sélectionnez au moins un type de production.")
                 return
-            if self.chk_ruches.isChecked() and \
-               not self.ent_napi.text().strip():
-                QMessageBox.warning(self, "Champ manquant",
-                    "Le N° NAPI est obligatoire si vous avez des ruches.")
-                return
+            if self.chk_ruches.isChecked():
+                napi = self.ent_napi.text().strip()
+                if not napi:
+                    QMessageBox.warning(self, "Champ manquant",
+                        "Le N° NAPI est obligatoire si vous avez des ruches.")
+                    return
+                if len(napi) < 4:
+                    QMessageBox.warning(self, "N° NAPI invalide",
+                        "Le N° NAPI doit contenir au moins 4 caractères.")
+                    return
 
         if self._current == len(self._pages) - 1:
             if self._valider():
@@ -380,13 +449,20 @@ class SetupWizard(QDialog):
         type_exploit = ",".join(types) if types else None
 
         has_ruches = 1 if self.chk_ruches.isChecked() else 0
-        napi       = self.ent_napi.text().strip() or None
+
+        # Construction du numéro de téléphone complet
+        tel_brut = self.ent_tel.text().strip()
+        tel_complet = f"+33{tel_brut}" if tel_brut else None
+
+        # Normalisation TVA
+        tva = self.ent_num_tva.text().strip().upper() or None
+        if tva and not tva.startswith("FR"):
+            tva = f"FR{tva}"
 
         try:
             conn = get_connection()
             cur  = conn.cursor()
 
-            # Entreprise
             cur.execute("""
                 INSERT OR REPLACE INTO entreprise
                 (id, nom, siret, adresse, code_postal, ville,
@@ -399,17 +475,16 @@ class SetupWizard(QDialog):
                 self.ent_adresse.text().strip() or None,
                 self.ent_cp.text().strip() or None,
                 self.ent_ville.text().strip() or None,
-                self.ent_tel.text().strip() or None,
+                tel_complet,
                 self.ent_email.text().strip() or None,
-                self.ent_num_tva.text().strip() or None,
+                tva,
                 self.ent_num_bio.text().strip() or None,
                 self.ent_org_certif.text().strip() or None,
                 type_exploit,
                 has_ruches,
-                self.ent_napi.text().strip() or None,
+                self.ent_napi.text().strip().upper() or None,
             ))
 
-            # Compte admin
             pw_hash = bcrypt.hashpw(
                 mdp.encode(), bcrypt.gensalt()).decode()
             cur.execute("""
