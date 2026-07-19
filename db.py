@@ -359,6 +359,7 @@ _TABLES = [
         usage_id       INTEGER   DEFAULT NULL,
         parcelle_id    INTEGER   DEFAULT NULL,
         culture        TEXT(150) NOT NULL,
+        categorie_ppp  TEXT(150) DEFAULT NULL,
         bio_agresseur  TEXT(200) DEFAULT NULL,
         dose_prescrite REAL      NOT NULL,
         unite          TEXT(20)  DEFAULT 'L/ha',
@@ -383,6 +384,7 @@ _TABLES = [
         parcelle_id        INTEGER   DEFAULT NULL,
         produit_id         INTEGER   NOT NULL,
         culture            TEXT(150) NOT NULL,
+        categorie_ppp      TEXT(150) DEFAULT NULL,
         bio_agresseur      TEXT(200) DEFAULT NULL,
         dose_appliquee     REAL      NOT NULL,
         unite              TEXT(20)  DEFAULT 'L/ha',
@@ -442,6 +444,12 @@ _MIGRATIONS = {
         ("first_login",   "INTEGER NOT NULL DEFAULT 0"),
         ("date_embauche", "DATE DEFAULT NULL"),
         ("telephone",     "TEXT(20) DEFAULT NULL"),
+    ],
+    "ppp_decisions": [
+        ("categorie_ppp", "TEXT(150) DEFAULT NULL"),
+    ],
+    "ppp_traitements": [
+        ("categorie_ppp", "TEXT(150) DEFAULT NULL"),
     ],
     "parametres_app": [
         ("tolerance_npk_pct", "REAL NOT NULL DEFAULT 2.0"),

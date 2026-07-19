@@ -43,7 +43,7 @@ def exporter_carnet_bio_pdf(date_debut: str, date_fin: str,
     cur = conn.cursor()
     cur.execute("""
         SELECT t.date_traitement, parc.nom AS parcelle_nom,
-               t.culture, p.nom_commercial, p.num_amm, u.dar,
+               t.culture, t.categorie_ppp, p.nom_commercial, p.num_amm, u.dar,
                t.bio_agresseur, t.dose_appliquee, t.unite,
                t.meteo_temperature, t.meteo_vent, t.meteo_nebulosite,
                t.epi_utilises,
@@ -67,7 +67,7 @@ def exporter_carnet_bio_pdf(date_debut: str, date_fin: str,
                 f"entre {date_debut} et {date_fin}")
 
     # ── Construction de l'en-tête de colonnes selon les options ──
-    entetes = ["Date", "Culture (Parcelle)", "Produit"]
+    entetes = ["Date", "Culture réelle (Parcelle)", "Cat. PPP", "Produit"]
     if inclure_amm:
         entetes.append("N° AMM")
     if inclure_bio_agr:
@@ -83,7 +83,7 @@ def exporter_carnet_bio_pdf(date_debut: str, date_fin: str,
 
     donnees = [entetes]
     for r in rows:
-        (date_t, parcelle, culture, produit, amm, dar, bio_agr,
+        (date_t, parcelle, culture, categorie_ppp, produit, amm, dar, bio_agr,
          dose, unite, temp, vent, neb, epi,
          decideur_nom, decideur_cipp, operateur_nom, operateur_cipp) = r
 
@@ -91,7 +91,8 @@ def exporter_carnet_bio_pdf(date_debut: str, date_fin: str,
         if parcelle:
             culture_parcelle += f" ({parcelle})"
 
-        ligne = [_fmt_date(date_t), culture_parcelle, produit or "—"]
+        ligne = [_fmt_date(date_t), culture_parcelle,
+                 categorie_ppp or "—", produit or "—"]
         if inclure_amm:
             ligne.append(amm or "—")
         if inclure_bio_agr:

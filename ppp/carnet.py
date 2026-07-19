@@ -102,7 +102,11 @@ class LigneTraitement(QWidget):
         _row(layout, row, "Produit :",
              f"{t.get('nom_commercial','—')} (AMM {t.get('num_amm','—')})")
         row += 1; _row(layout, row, "Substance(s) :", t.get("substance_active"))
-        row += 1; _row(layout, row, "Culture :", t.get("culture"))
+        row += 1
+        culture_txt = t.get("culture") or "—"
+        if t.get("categorie_ppp") and t["categorie_ppp"] != t.get("culture"):
+            culture_txt += f"\n(cat. PPP : {t['categorie_ppp']})"
+        _row(layout, row, "Culture :", culture_txt)
         row += 1; _row(layout, row, "Bio-agresseur :", t.get("bio_agresseur"))
         row += 1; _row(layout, row, "Parcelle :", t.get("parcelle_nom"))
         row += 1
@@ -440,7 +444,7 @@ class CarnetPage(QWidget):
             sql = """
                 SELECT t.id,
                        p.nom_commercial, p.num_amm, p.substance_active,
-                       t.culture, t.bio_agresseur,
+                       t.culture, t.categorie_ppp, t.bio_agresseur,
                        parc.nom AS parcelle_nom,
                        t.dose_appliquee, t.unite, t.surface_traitee_ha,
                        t.date_traitement,
@@ -693,11 +697,10 @@ class CarteAFaire(QFrame):
         self.decision = decision
         self.current_user = current_user
         self.on_refresh = on_refresh
-        self.setFrameShape(QFrame.NoFrame)
-        self.setAutoFillBackground(True)
-        pal = self.palette()
-        pal.setColor(QPalette.Window, QColor("#FEF3C7"))
-        self.setPalette(pal)
+        self.setFrameShape(QFrame.StyledPanel)
+        self.setStyleSheet("""
+            QFrame { border: 2px solid #F5A623; border-radius: 6px; margin-bottom: 6px; }
+        """)
         self._build_ui()
 
     def _build_ui(self):
@@ -718,13 +721,13 @@ class CarteAFaire(QFrame):
             f"Dose : {d.get('dose_prescrite','—')} {d.get('unite','')}  |  "
             f"Date prévue : {self._fmt_date(d.get('date_prevue'))}  |  "
             f"Décidé par : {d.get('decideur_nom','—')}")
-        infos.setStyleSheet("font-size: 12px; color: #78716c;")
+        infos.setStyleSheet("font-size: 12px; color: palette(mid);")
         infos.setWordWrap(True)
         layout.addWidget(infos)
 
         if d.get("notes_decideur"):
             lbl_notes = QLabel(f"Note décideur : {d['notes_decideur']}")
-            lbl_notes.setStyleSheet("font-size: 12px; font-style: italic; color: #44403c;")
+            lbl_notes.setStyleSheet("font-size: 12px; font-style: italic;")
             lbl_notes.setWordWrap(True)
             layout.addWidget(lbl_notes)
 
@@ -974,10 +977,11 @@ class DialogDecision(QDialog):
             cur.execute("""
                 INSERT INTO ppp_decisions
                 (decideur_id, produit_id, parcelle_id, culture,
-                 bio_agresseur, dose_prescrite, unite, date_prevue, notes_decideur)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 categorie_ppp, bio_agresseur, dose_prescrite, unite,
+                 date_prevue, notes_decideur)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (self.current_user["id"], produit_id, parcelle_id,
-                  culture, bio_agr, dose, unite, date_p, notes))
+                  culture, None, bio_agr, dose, unite, date_p, notes))
             conn.commit()
             decision_id = cur.lastrowid
             cur.close()
@@ -1154,14 +1158,16 @@ class DialogConfirmerTraitement(QDialog):
             cur.execute("""
                 INSERT INTO ppp_traitements
                 (decision_id, operateur_id, parcelle_id, produit_id,
-                 culture, bio_agresseur, dose_appliquee, unite,
+                 culture, categorie_ppp, bio_agresseur, dose_appliquee, unite,
                  surface_traitee_ha, date_traitement,
                  meteo_temperature, meteo_vent, meteo_nebulosite,
                  epi_utilises, signature_nom, signature_date, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (decision_id, self.current_user["id"], parcelle_id,
                   produit_id,
-                  self.decision.get("culture"), self.decision.get("bio_agresseur"),
+                  self.decision.get("culture"),
+                  self.decision.get("categorie_ppp"),
+                  self.decision.get("bio_agresseur"),
                   dose, unite, surface, date_app,
                   temp, vent, neb, epi, sig_nom, date_app, notes))
             cur.execute(
@@ -1301,7 +1307,7 @@ class DialogDecisionPreRempli(QDialog):
         if p.get("condition_usage"):
             lbl_cond = QLabel(p["condition_usage"])
             lbl_cond.setWordWrap(True)
-            lbl_cond.setStyleSheet("font-size: 11px; color: #57534e;")
+            lbl_cond.setStyleSheet("font-size: 11px; color: palette(mid);")
             recap_lay.addRow("Condition usage :", lbl_cond)
         layout.addWidget(recap)
 
@@ -1422,14 +1428,10 @@ class DialogDecisionPreRempli(QDialog):
         dose = self.inp_dose.value()
         if self.dose_max and dose > self.dose_max:
             self.lbl_dose_warn.setText(f"⚠ Dépasse la dose max ({self.dose_max})")
-            pal = self.inp_dose.palette()
-            pal.setColor(QPalette.Base, QColor("#FEE2E2"))  # rouge
-            self.inp_dose.setPalette(pal)
+            self.inp_dose.setStyleSheet("border: 2px solid red;")
         else:
             self.lbl_dose_warn.setText("")
-            pal = self.inp_dose.palette()
-            pal.setColor(QPalette.Base, self.style().standardPalette().color(QPalette.Base))
-            self.inp_dose.setPalette(pal)
+            self.inp_dose.setStyleSheet("")
 
     def _valider(self):
         culture_parcelle_id = self.combo_parcelle.currentData()
@@ -1534,14 +1536,19 @@ class DialogDecisionPreRempli(QDialog):
         try:
             conn = get_connection()
             cur = conn.cursor()
+            # culture réelle = espèce de la parcelle sélectionnée
+            # categorie_ppp  = nom e-phy utilisé dans la recherche produit
+            culture_reelle = self.combo_parcelle.itemData(
+                self.combo_parcelle.currentIndex(), Qt.UserRole + 1) or self.culture
             cur.execute("""
                 INSERT INTO ppp_decisions
                 (decideur_id, produit_id, usage_id, parcelle_id, culture,
-                 bio_agresseur, dose_prescrite, unite, date_prevue, notes_decideur)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 categorie_ppp, bio_agresseur, dose_prescrite, unite,
+                 date_prevue, notes_decideur)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (self.current_user["id"], self.produit_id, self.usage_id,
-                  parcelle_id, self.culture, self.bio_agresseur,
-                  dose, unite, date_p, notes))
+                  parcelle_id, culture_reelle, self.culture,
+                  self.bio_agresseur, dose, unite, date_p, notes))
             conn.commit()
             decision_id = cur.lastrowid
             cur.close()
@@ -1561,7 +1568,8 @@ class DialogDecisionPreRempli(QDialog):
                     "num_amm":          self.prod_info.get("num_amm"),
                     "substance_active": self.prod_info.get("substance_active"),
                     "parcelle_nom":     self.combo_parcelle.currentText().split(" — ")[0],
-                    "culture":          self.culture,
+                    "culture":          culture_reelle,
+                    "categorie_ppp":    self.culture,
                     "bio_agresseur":    self.bio_agresseur,
                     "dose_prescrite":   dose,
                     "unite":            unite,
