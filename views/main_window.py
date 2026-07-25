@@ -27,6 +27,8 @@ from exploit.exploit import ExploitPage
 from ruches.ruches import RuchesPage
 
 from views.parametres import ParametresPage
+from views.aide import AidePage
+from views.didacticiel import DidacticielOverlay
 
 import utils.debug as debug
 
@@ -131,7 +133,8 @@ class MainWindow(QMainWindow):
         self.page_ferti_carnet     = CarnetFertilisation(current_user=self.current_user)
         self.page_admin            = AdminPage(current_user=self.current_user)
         self.page_parametres       = ParametresPage(current_user=self.current_user)
-
+        self.page_aide             = AidePage()
+        self.page_aide.lancer_didacticiel.connect(self._lancer_didacticiel)
         # ── Signaux de synchronisation entre pages ──
         # Parcelles → Irrigation (rechargement sans restart)
         self.page_parcelles.parcelle_modifiee.connect(
@@ -160,7 +163,8 @@ class MainWindow(QMainWindow):
                   self.page_ferti_aide,       # 8
                   self.page_ferti_carnet,     # 9
                   self.page_admin,            # 10
-                  self.page_parametres]:      # 11
+                  self.page_parametres,       # 11
+                  self.page_aide]:             # 12
             self.stack.addWidget(p)
 
         self.page_ppp_aide.creer_traitement.connect(self._aller_au_carnet_ppp)
@@ -274,6 +278,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(sep)
 
         _nav("Paramètres",           11)
+        _nav("❓ Aide",              12)
 
         sep2 = QFrame()
         sep2.setFrameShape(QFrame.HLine)
@@ -324,3 +329,9 @@ class MainWindow(QMainWindow):
             if login.exec() == LoginWindow.Accepted and login.current_user:
                 new_window = MainWindow(current_user=login.current_user)
                 new_window.show()
+
+    def _lancer_didacticiel(self):
+        overlay  = DidacticielOverlay(main_window=self, parent=self)
+        overlay.resize(self.size())
+        overlay.show()
+        overlay.raise_()
