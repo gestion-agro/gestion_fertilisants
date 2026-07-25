@@ -136,12 +136,38 @@ class AdminPage(QWidget):
             return
         item = self.table_users.item(row, 0)
         user_id = item.data(Qt.UserRole)
-
-        if user_id == self.current_user.get("id"):
-            return
-
+        est_soi_meme = (user_id == self.current_user.get("id"))
         etat_item = self.table_users.item(row, 7)
         est_actif = etat_item and etat_item.text() == "Actif"
+        menu = QMenu(self)
+        menu.addAction("Modifier",
+            lambda: self._dialog_user(user_id))
+        menu.addAction("Permissions",
+            lambda: self._dialog_permissions(user_id))
+        menu.addAction("Changer le mot de passe",
+            lambda: self._dialog_mdp(user_id))
+
+        if not est_soi_meme:
+            menu.addAction("🔑 Forcer reset mdp à la prochaine connexion",
+                lambda: self._forcer_reset_mdp(user_id))
+            menu.addSeparator()
+            if est_actif:
+                menu.addAction("Désactiver",
+                    lambda: self._set_actif(user_id, False))
+            else:
+                menu.addAction("Réactiver",
+                    lambda: self._set_actif(user_id, True))
+            menu.addSeparator()
+            act_sup = menu.addAction("🗑 Supprimer définitivement")
+            act_sup.triggered.connect(lambda: self._supprimer_user(user_id))
+        else:
+            # Actions indisponibles sur son propre compte — grisées
+            menu.addSeparator()
+            act_info = menu.addAction(
+                "⚠ Désactivation/suppression indisponibles sur votre propre compte")
+            act_info.setEnabled(False)
+
+        menu.exec(self.table_users.viewport().mapToGlobal(pos))
 
         menu = QMenu(self)
         menu.addAction("Modifier",
@@ -150,6 +176,8 @@ class AdminPage(QWidget):
             lambda: self._dialog_permissions(user_id))
         menu.addAction("Changer le mot de passe",
             lambda: self._dialog_mdp(user_id))
+        menu.addAction("🔑 Forcer reset mdp à la prochaine connexion",
+            lambda: self._forcer_reset_mdp(user_id))
         menu.addSeparator()
         if est_actif:
             menu.addAction("Désactiver",
@@ -191,7 +219,9 @@ class AdminPage(QWidget):
                 traceback.print_exc()
 
     def _dialog_user(self, user_id=None):
-        dlg = DialogUser(user_id=user_id, parent=self)
+        dlg = DialogUser(user_id=user_id,
+                         current_user=self.current_user,
+                         parent=self)
         if dlg.exec() == QDialog.Accepted:
             # Initialiser les permissions par défaut pour les nouveaux users
             if not user_id and dlg.new_user_id:
@@ -225,6 +255,27 @@ class AdminPage(QWidget):
     def _dialog_mdp(self, user_id: int):
         dlg = DialogMdp(user_id=user_id, parent=self)
         dlg.exec()
+
+    def _forcer_reset_mdp(self, user_id: int):
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT prenom, nom FROM users WHERE id=?", (user_id,))
+            row = cur.fetchone()
+            nom_user = f"{row[0]} {row[1]}" if row else "cet utilisateur"
+            rep = QMessageBox.question(self, "Confirmer",
+                f"Forcer {nom_user} à changer son mot de passe "
+                f"à sa prochaine connexion ?")
+            if rep == QMessageBox.Yes:
+                cur.execute(
+                    "UPDATE users SET first_login=1 WHERE id=?", (user_id,))
+                conn.commit()
+                QMessageBox.information(self, "OK",
+                    f"{nom_user} devra définir un nouveau mot de passe "
+                    f"à sa prochaine connexion.")
+            cur.close()
+        except Exception:
+            traceback.print_exc()
 
 
 # ──────────────────────────────────────────────
@@ -365,9 +416,10 @@ class DialogPermissions(QDialog):
 # Dialog création / modification utilisateur
 # ──────────────────────────────────────────────
 class DialogUser(QDialog):
-    def __init__(self, user_id=None, parent=None):
+    def __init__(self, user_id=None, current_user=None, parent=None):
         super().__init__(parent)
         self.user_id         = user_id
+        self.current_user    = current_user or {}
         self.new_user_id     = None   # rempli après création
         self.role_selectionne = "user"
         self.setWindowTitle(
@@ -469,7 +521,13 @@ class DialogUser(QDialog):
             self.inp_nom.setText(u.get("nom", ""))
             self.inp_prenom.setText(u.get("prenom", ""))
             self.inp_user.setText(u.get("username", ""))
-            self.inp_user.setEnabled(False)
+            est_soi_meme = (user_id == self.current_user.get("id"))
+            self.inp_user.setEnabled(not est_soi_meme)
+            if est_soi_meme:
+                self.inp_user.setToolTip(
+                    "Vous ne pouvez pas modifier votre propre identifiant.")
+                self.inp_user.setStyleSheet(
+                    "background: palette(window); color: palette(mid);")
             self.inp_tel.setText(u.get("telephone") or "")
             self.inp_cipp.setText(u.get("certiphyto_cipp") or "")
             idx = self.combo_cipp_type.findData(u.get("certiphyto_type"))

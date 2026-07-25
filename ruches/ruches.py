@@ -138,6 +138,34 @@ class RuchesPage(QWidget):
         self.btn_nouvelle_visite.setEnabled(False)
         self.btn_nouvelle_visite.clicked.connect(self._nouvelle_visite)
         dl.addWidget(self.btn_nouvelle_visite)
+
+        # Résumé de la dernière visite
+        self.w_resume_visite = QFrame()
+        self.w_resume_visite.setFrameShape(QFrame.StyledPanel)
+        self.w_resume_visite.setAutoFillBackground(True)
+        pal = self.w_resume_visite.palette()
+        pal.setColor(QPalette.Window, QColor("#f0fdf4"))
+        self.w_resume_visite.setPalette(pal)
+        self.w_resume_visite.setVisible(False)
+        rv_lay = QVBoxLayout(self.w_resume_visite)
+        rv_lay.setContentsMargins(10, 8, 10, 8)
+        rv_lay.setSpacing(4)
+        lbl_rv_titre = QLabel("📋 Dernière visite")
+        lbl_rv_titre.setStyleSheet("font-weight: bold; color: #16a34a; font-size: 12px;")
+        rv_lay.addWidget(lbl_rv_titre)
+        self.lbl_rv_date       = QLabel("—")
+        self.lbl_rv_population = QLabel("—")
+        self.lbl_rv_reine      = QLabel("—")
+        self.lbl_rv_couvain    = QLabel("—")
+        self.lbl_rv_varroa     = QLabel("—")
+        self.lbl_rv_notes      = QLabel("—")
+        self.lbl_rv_notes.setWordWrap(True)
+        for lbl in (self.lbl_rv_date, self.lbl_rv_population,
+                    self.lbl_rv_reine, self.lbl_rv_couvain,
+                    self.lbl_rv_varroa, self.lbl_rv_notes):
+            lbl.setStyleSheet("font-size: 11px; color: #374151;")
+            rv_lay.addWidget(lbl)
+        dl.addWidget(self.w_resume_visite)
         dl.addStretch()
 
         splitter.addWidget(detail)
@@ -451,10 +479,22 @@ class RuchesPage(QWidget):
                 else:
                     self.lbl_derniere_visite.setStyleSheet(
                         "color: palette(mid); font-size: 12px; padding: 4px;")
+
+                # ── Résumé compact sous le bouton Nouvelle visite ──
+                self.w_resume_visite.setVisible(True)
+                self.lbl_rv_date.setText(f"📅 {self._fmt_date(visite[0])}")
+                varroa_style = "color: #DC2626; font-weight: bold;" if visite[1] and visite[1] > 3 else "color: #374151;"
+                self.lbl_rv_varroa.setText(f"🪲 Varroa : {varroa_txt}")
+                self.lbl_rv_varroa.setStyleSheet(f"font-size: 11px; {varroa_style}")
+                self.lbl_rv_reine.setText(f"👑 Reine : {visite[2] or '—'}")
+                self.lbl_rv_couvain.setText(f"🥚 Couvain : {visite[3] or '—'}")
+                self.lbl_rv_population.setText(f"🐝 Population : {visite[4] or '—'}")
+                self.lbl_rv_notes.setText(f"🔧 {visite[5]} intervention(s)")
             else:
                 self.lbl_derniere_visite.setText("Aucune visite enregistrée")
                 self.lbl_derniere_visite.setStyleSheet(
                     "color: palette(mid); font-size: 12px; padding: 4px;")
+                self.w_resume_visite.setVisible(False)
         except Exception as e:
             traceback.print_exc()
 
