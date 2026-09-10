@@ -65,3 +65,5 @@ ancien/
 .pytest_cache/
 *.bak
 db_backup.py
+*.bak
+db_backup.py
