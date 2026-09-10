@@ -224,9 +224,7 @@ class IrrigationPage(QWidget):
                 self.lbl_cultures_sys.setText(
                     "🌱 Irrigue : " + ", ".join(noms))
             else:
-                self.lbl_cultures_sys.setText(
-                    "⚠ Aucune culture liée à ce système — "
-                    "configurez-le depuis l'onglet Parcelles.")
+                self.lbl_cultures_sys.setText("")
         self._calc_volume()
 
     def _calc_volume(self):

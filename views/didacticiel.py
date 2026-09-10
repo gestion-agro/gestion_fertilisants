@@ -111,7 +111,7 @@ ETAPES_BASIQUE = [
      "• Le type CertiPhyto conditionne l'accès aux modules PPP\n"
      "• Les nouveaux utilisateurs définissent leur mot de passe "
      "à la première connexion",
-     10),
+     11),
 
     ("page_parametres", "🔧 Paramètres",
      "Mon compte : consultez vos infos et changez votre mot de passe.\n\n"
@@ -119,13 +119,13 @@ ETAPES_BASIQUE = [
      "• Largeur de planche et passe-pied par défaut\n"
      "• Tolérance NPK pour le solveur fertilisants\n"
      "• Colonnes et orientation de l'export PDF contrôleur bio",
-     11),
+     12),
 
     ("page_aide", "❓ Aide",
      "Cette page ! Recherchez n'importe quel terme pour trouver des explications "
      "sur toutes les fonctions de l'application.\n\n"
      "Le mode avancé du didacticiel guide bouton par bouton sur chaque module.",
-     12),
+     13),
 
     (None, "Didacticiel terminé ! 🎉",
      "Vous connaissez maintenant toutes les fonctions principales.\n\n"

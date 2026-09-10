@@ -32,6 +32,10 @@ from views.didacticiel import DidacticielOverlay
 
 import utils.debug as debug
 
+from recolte.recolte import RecoltePage
+
+from assolement.assolement import AssolementPage
+
 
 class SidebarButton(QPushButton):
     def __init__(self, label: str, parent=None):
@@ -123,6 +127,7 @@ class MainWindow(QMainWindow):
         # ── Construction des pages ────────────
         self.page_exploit          = ExploitPage(current_user=self.current_user)
         self.page_parcelles        = ParcellePage(current_user=self.current_user)
+        self.page_assolement       = AssolementPage(current_user=self.current_user)
         self.page_irrigation       = IrrigationPage(current_user=self.current_user)
         self.page_ruches           = RuchesPage(current_user=self.current_user)
         self.page_ppp_catalogue    = CataloguePPP()
@@ -133,6 +138,7 @@ class MainWindow(QMainWindow):
         self.page_ferti_carnet     = CarnetFertilisation(current_user=self.current_user)
         self.page_admin            = AdminPage(current_user=self.current_user)
         self.page_parametres       = ParametresPage(current_user=self.current_user)
+        self.page_recolte          = RecoltePage(current_user=self.current_user)
         self.page_aide             = AidePage()
         self.page_aide.lancer_didacticiel.connect(self._lancer_didacticiel)
         # ── Signaux de synchronisation entre pages ──
@@ -154,21 +160,22 @@ class MainWindow(QMainWindow):
         # ── Ordre du stack = ordre exact de la sidebar ──
         for p in [self.page_exploit,          # 0
                   self.page_parcelles,        # 1
-                  self.page_irrigation,       # 2
-                  self.page_ruches,           # 3
-                  self.page_ppp_catalogue,    # 4
-                  self.page_ppp_aide,         # 5
-                  self.page_ppp_carnet,       # 6
-                  self.page_ferti_catalogue,  # 7
-                  self.page_ferti_aide,       # 8
-                  self.page_ferti_carnet,     # 9
-                  self.page_admin,            # 10
-                  self.page_parametres,       # 11
-                  self.page_aide]:             # 12
+                  self.page_assolement,       # 2
+                  self.page_irrigation,       # 3
+                  self.page_ruches,           # 4
+                  self.page_ppp_catalogue,    # 5
+                  self.page_ppp_aide,         # 6
+                  self.page_ppp_carnet,       # 7
+                  self.page_ferti_catalogue,  # 8
+                  self.page_ferti_aide,       # 9
+                  self.page_ferti_carnet,     # 10
+                  self.page_recolte,          # 11
+                  self.page_admin,            # 12
+                  self.page_parametres,       # 13
+                  self.page_aide]:            # 14
             self.stack.addWidget(p)
 
         self.page_ppp_aide.creer_traitement.connect(self._aller_au_carnet_ppp)
-        self.page_ferti_aide.btn_aller_carnet  # bouton interne, pas de signal externe nécessaire
 
         # Page par défaut
         self._navigate_to(0)
@@ -248,27 +255,31 @@ class MainWindow(QMainWindow):
         _section("Exploitation")
         _nav("Entreprise",           0)
         _nav("Parcelles",            1)
-        _nav("Irrigation",           2)
+        _nav("📋 Assolement",        2)
+        _nav("Irrigation",           3)
         from db import get_entreprise
         ent = get_entreprise()
         if ent.get("has_ruches"):
-            _nav("Ruches",            3)
+            _nav("Ruches",            4)
 
         _section("PPP")
-        _nav("Catalogue",             4)
+        _nav("Catalogue",             5)
         cipp = self.current_user.get("certiphyto_type")
         if cipp in ("CON", "DESA", "DENSA", "OPE") or role == "admin":
-            _nav("Aide à la décision",    5)
-            _nav("Carnet de traitements", 6)
+            _nav("Aide à la décision",    6)
+            _nav("Carnet de traitements", 7)
 
         _section("Fertilisants")
-        _nav("Catalogue",             7)
-        _nav("Aide à la décision",    8)
-        _nav("Carnet de fertilisation", 9)
+        _nav("Catalogue",             8)
+        _nav("Aide à la décision",    9)
+        _nav("Carnet de fertilisation", 10)
+
+        _section("Récoltes")
+        _nav("🌾 Récoltes & CA",      11)
 
         if role == "admin":
             _section("Administration")
-            _nav("Gestion",         10)
+            _nav("Gestion",           12)
 
         layout.addStretch()
 
@@ -277,8 +288,8 @@ class MainWindow(QMainWindow):
         sep.setStyleSheet("color: palette(text); margin: 0 4px;")
         layout.addWidget(sep)
 
-        _nav("Paramètres",           11)
-        _nav("❓ Aide",              12)
+        _nav("Paramètres",           13)
+        _nav("❓ Aide",              14)
 
         sep2 = QFrame()
         sep2.setFrameShape(QFrame.HLine)

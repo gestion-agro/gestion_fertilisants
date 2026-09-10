@@ -1703,6 +1703,101 @@ def get_assolement_planche(planche_id: int, nb_annees: int = 5) -> list:
         return []
 
 
+# ── Tables Assolement ─────────────────────────
+_TABLES_ASSOLEMENT = [
+    """
+    CREATE TABLE IF NOT EXISTS familles_botaniques (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom         TEXT(100) NOT NULL UNIQUE,
+        couleur_hex TEXT(7)   NOT NULL DEFAULT '#95a5a6'
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS cultures_ref (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom             TEXT(150) NOT NULL,
+        famille_id      INTEGER   DEFAULT NULL,
+        couleur_perso   TEXT(7)   DEFAULT NULL,
+        notes           TEXT      DEFAULT NULL,
+        FOREIGN KEY (famille_id) REFERENCES familles_botaniques(id)
+            ON DELETE SET NULL
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS planches (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        parcelle_id INTEGER NOT NULL,
+        numero      INTEGER NOT NULL,
+        longueur_m  REAL    DEFAULT NULL,
+        largeur_m   REAL    DEFAULT NULL,
+        notes       TEXT    DEFAULT NULL,
+        FOREIGN KEY (parcelle_id) REFERENCES parcelles(id) ON DELETE CASCADE,
+        UNIQUE (parcelle_id, numero)
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS assolement (
+        id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+        planche_id              INTEGER   NOT NULL,
+        culture_ref_id          INTEGER   NOT NULL,
+        variete                 TEXT(150) DEFAULT NULL,
+        annee                   INTEGER   NOT NULL,
+        date_semis              DATE      DEFAULT NULL,
+        date_premiere_recolte   DATE      DEFAULT NULL,
+        date_derniere_recolte   DATE      DEFAULT NULL,
+        nb_series               INTEGER   DEFAULT 1,
+        intervalle_semaines     INTEGER   DEFAULT NULL,
+        mode_plantation         TEXT CHECK(mode_plantation IN
+            ('semis_direct','plant_fait','plant_achete'))
+            DEFAULT 'semis_direct',
+        sous_abris              INTEGER   NOT NULL DEFAULT 0,
+        rendement_ml            REAL      DEFAULT NULL,
+        prix_kg                 REAL      DEFAULT NULL,
+        notes                   TEXT      DEFAULT NULL,
+        created_at              DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (planche_id)     REFERENCES planches(id)      ON DELETE CASCADE,
+        FOREIGN KEY (culture_ref_id) REFERENCES cultures_ref(id)  ON DELETE RESTRICT
+    );
+    """,
+]
+
+_INDEXES_ASSOLEMENT = [
+    "CREATE INDEX IF NOT EXISTS idx_planches_parcelle  ON planches(parcelle_id);",
+    "CREATE INDEX IF NOT EXISTS idx_assolement_planche ON assolement(planche_id);",
+    "CREATE INDEX IF NOT EXISTS idx_assolement_annee   ON assolement(annee);",
+    "CREATE INDEX IF NOT EXISTS idx_assolement_culture ON assolement(culture_ref_id);",
+]
+
+# Familles botaniques par défaut avec couleurs distinctes
+_FAMILLES_DEFAUT = [
+    ("Solanacées",      "#e74c3c"),   # rouge
+    ("Cucurbitacées",   "#e67e22"),   # orange
+    ("Alliacées",       "#9b59b6"),   # violet
+    ("Fabacées",        "#27ae60"),   # vert
+    ("Apiacées",        "#f1c40f"),   # jaune
+    ("Brassicacées",    "#3498db"),   # bleu
+    ("Astéracées",      "#1abc9c"),   # turquoise
+    ("Chénopodiacées",  "#2ecc71"),   # vert clair
+    ("Lamiées",         "#8e44ad"),   # violet foncé
+    ("Rosacées",        "#e91e63"),   # rose
+    ("Liliacées",       "#00bcd4"),   # cyan
+    ("Autres",          "#95a5a6"),   # gris
+]
+
+
+def init_assolement(cur):
+    for ddl in _TABLES_ASSOLEMENT:
+        cur.execute(ddl)
+    for idx in _INDEXES_ASSOLEMENT:
+        cur.execute(idx)
+    # Insérer les familles par défaut si absentes
+    for nom, couleur in _FAMILLES_DEFAUT:
+        cur.execute("""
+            INSERT OR IGNORE INTO familles_botaniques (nom, couleur_hex)
+            VALUES (?, ?)
+        """, (nom, couleur))
+
+
 # ── Helpers Assolement ────────────────────────
 def get_familles_botaniques() -> list:
     try:

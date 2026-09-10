@@ -277,39 +277,6 @@ class ParcellePage(QWidget):
         fl.addRow("Notes :",        self.lbl_notes)
         dl.addWidget(self.fiche_group)
 
-        # Cultures de la parcelle
-        cult_group = QGroupBox("Cultures sur cette parcelle")
-        cult_lay = QVBoxLayout(cult_group)
-        cult_lay.setContentsMargins(6, 6, 6, 6)
-
-        cult_top = QHBoxLayout()
-        cult_top.addStretch()
-        self.btn_add_culture = QPushButton("+ Ajouter une culture")
-        self.btn_add_culture.setEnabled(False)
-        self.btn_add_culture.clicked.connect(self._ajouter_culture)
-        cult_top.addWidget(self.btn_add_culture)
-        cult_lay.addLayout(cult_top)
-
-        self.table_cultures = QTableWidget(0, 5)
-        self.table_cultures.setHorizontalHeaderLabels(
-            ["Catégorie", "Espèce / Variété", "Surface", "Rendement", "Prix moyen"])
-        self.table_cultures.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.table_cultures.cellDoubleClicked.connect(
-            lambda row, col: self._modifier_culture(self.table_cultures.item(row, 0).data(Qt.UserRole))
-        )
-
-        self.table_cultures.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table_cultures.setAlternatingRowColors(True)
-        self.table_cultures.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.table_cultures.customContextMenuRequested.connect(self._menu_culture)
-        ch = self.table_cultures.horizontalHeader()
-        ch.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        ch.setSectionResizeMode(1, QHeaderView.Stretch)
-        for i in range(2, 5):
-            ch.setSectionResizeMode(i, QHeaderView.ResizeToContents)
-        cult_lay.addWidget(self.table_cultures)
-        dl.addWidget(cult_group, 1)
-
         # Systèmes irrigation
         sys_group = QGroupBox("Systèmes d'irrigation")
         sys_lay = QVBoxLayout(sys_group)
@@ -338,7 +305,7 @@ class ParcellePage(QWidget):
         sh.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.table_sys.setMaximumHeight(160)
         sys_lay.addWidget(self.table_sys)
-        dl.addWidget(sys_group)
+        dl.addWidget(sys_group, 1)
 
         splitter.addWidget(detail)
         splitter.setSizes([380, 520])
