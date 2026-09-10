@@ -67,3 +67,5 @@ ancien/
 db_backup.py
 *.bak
 db_backup.py
+*.bak
+db_backup.py
