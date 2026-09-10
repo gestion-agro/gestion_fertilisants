@@ -63,3 +63,5 @@ ancien/
 
 # Pytest
 .pytest_cache/
+*.bak
+db_backup.py
