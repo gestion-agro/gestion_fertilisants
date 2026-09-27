@@ -183,16 +183,22 @@ class IrrigationPage(QWidget):
             conn = get_connection()
             cur = conn.cursor()
             cur.execute("""
-                SELECT id, type_emetteur, nb_emetteurs, debit_lh, description
+                SELECT id, type_emetteur, nb_emetteurs, debit_lh,
+                       description, nom
                 FROM irrigation_systemes
                 WHERE parcelle_id = ? AND actif = 1
             """, (parcelle_id,))
             for row in cur.fetchall():
                 s = dict(row)
-                label = (f"{s['type_emetteur'].capitalize()} — "
-                         f"{s['nb_emetteurs']} × {s['debit_lh']} L/h")
-                if s.get("description"):
-                    label += f" ({s['description']})"
+                if s.get("nom"):
+                    label = s["nom"]
+                    label += (f" — {s['type_emetteur'].capitalize()} "
+                              f"{s['nb_emetteurs']} × {s['debit_lh']} L/h")
+                else:
+                    label = (f"{s['type_emetteur'].capitalize()} — "
+                             f"{s['nb_emetteurs']} × {s['debit_lh']} L/h")
+                    if s.get("description"):
+                        label += f" ({s['description']})"
                 self.combo_systeme.addItem(label, s["id"])
                 self.combo_systeme.setItemData(
                     self.combo_systeme.count() - 1,
@@ -240,7 +246,7 @@ class IrrigationPage(QWidget):
         duree_h = self.inp_heures.value() + self.inp_minutes.value() / 60
         volume = nb * debit * duree_h
 
-        self.lbl_volume.setText(f"{volume:,.0f} L ({volume/1000:.2f} m³)")
+        self.lbl_volume.setText(f"{volume:_.0f} L ({volume/1000:.2f} m³)".replace("_", " "))
         self.lbl_sys_info.setText(
             f"{nb} émetteurs × {debit} L/h × {duree_h:.2f} h")
 
@@ -283,7 +289,7 @@ class IrrigationPage(QWidget):
             cur.close()
 
             QMessageBox.information(self, "Enregistré",
-                f"Session enregistrée — Volume : {volume:,.0f} L")
+                f"Session enregistrée — Volume : {volume:_.0f} L".replace("_", " "))
             self.inp_heures.setValue(0)
             self.inp_minutes.setValue(0)
             self.inp_notes.clear()
@@ -346,12 +352,12 @@ class IrrigationPage(QWidget):
                 self.table_histo.setItem(r, 4, QTableWidgetItem(f"{h}h{m:02d}"))
                 vol = row[4] or 0
                 total_vol += vol
-                self.table_histo.setItem(r, 5, QTableWidgetItem(f"{vol:,.0f}"))
+                self.table_histo.setItem(r, 5, QTableWidgetItem(f"{vol:_.0f}".replace("_", " ")))
                 self.table_histo.setItem(r, 6, QTableWidgetItem(row[5] or ""))
                 self.table_histo.item(r, 0).setData(Qt.UserRole, row[6])
 
             self.lbl_total.setText(
-                f"Total période : {total_vol:,.0f} L ({total_vol/1000:.1f} m³)")
+                f"Total période : {total_vol:_.0f} L ({total_vol/1000:.1f} m³)".replace("_", " "))
         except Exception:
             traceback.print_exc()
 

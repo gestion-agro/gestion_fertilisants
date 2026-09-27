@@ -438,9 +438,6 @@ _MIGRATIONS = {
         ("has_ruches",        "INTEGER NOT NULL DEFAULT 0"),
         ("num_napi",          "TEXT(12) DEFAULT NULL"),
     ],
-    "irrigation_systemes": [
-        ("nom", "TEXT(150) DEFAULT NULL"),
-    ],
     "users": [
         ("auto_login",    "INTEGER NOT NULL DEFAULT 0"),
         ("is_apiculteur", "INTEGER NOT NULL DEFAULT 0"),
@@ -945,44 +942,6 @@ def set_cultures_systeme(systeme_id: int, culture_ids: list):
         cur.close()
     except Exception as e:
         debug.debug(f"[DB] Erreur set_cultures_systeme : {e}")
-
-def get_planches_systeme(systeme_id: int) -> list:
-    """Retourne les planches couvertes par un système d'irrigation."""
-    try:
-        conn = get_connection()
-        cur  = conn.cursor()
-        cur.execute("""
-            SELECT pl.id, pl.numero, pl.longueur_m, pl.sous_parcelle
-            FROM irrigation_systeme_planches isp
-            JOIN planches pl ON pl.id = isp.planche_id
-            WHERE isp.systeme_id = ?
-            ORDER BY pl.numero
-        """, (systeme_id,))
-        rows = [dict(r) for r in cur.fetchall()]
-        cur.close()
-        return rows
-    except Exception as e:
-        debug.debug(f"[DB] get_planches_systeme : {e}")
-        return []
-
-
-def set_planches_systeme(systeme_id: int, planche_ids: list):
-    """Remplace la liste des planches couvertes par un système."""
-    try:
-        conn = get_connection()
-        cur  = conn.cursor()
-        cur.execute(
-            "DELETE FROM irrigation_systeme_planches WHERE systeme_id=?",
-            (systeme_id,))
-        for pid in planche_ids:
-            cur.execute("""
-                INSERT OR IGNORE INTO irrigation_systeme_planches
-                (systeme_id, planche_id) VALUES (?, ?)
-            """, (systeme_id, pid))
-        conn.commit()
-        cur.close()
-    except Exception as e:
-        debug.debug(f"[DB] set_planches_systeme : {e}")
 
 
 # ── Helpers permissions ───────────────────────
@@ -1591,21 +1550,6 @@ def init_assolement(cur):
     cur.execute(_TABLE_ASSOLEMENT)
     for idx in _INDEXES_ASSOLEMENT:
         cur.execute(idx)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS irrigation_systeme_planches (
-            systeme_id  INTEGER NOT NULL,
-            planche_id  INTEGER NOT NULL,
-            PRIMARY KEY (systeme_id, planche_id),
-            FOREIGN KEY (systeme_id) REFERENCES irrigation_systemes(id)
-                ON DELETE CASCADE,
-            FOREIGN KEY (planche_id) REFERENCES planches(id)
-                ON DELETE CASCADE
-        )
-    """)
-    cur.execute("""
-        CREATE INDEX IF NOT EXISTS idx_irrsysp_sys
-        ON irrigation_systeme_planches(systeme_id)
-    """)
 
     # Pré-remplir les familles botaniques si vide
     cur.execute("SELECT COUNT(*) FROM familles_botaniques")
@@ -1780,6 +1724,304 @@ def get_assolement_planche(planche_id: int, nb_annees: int = 5) -> list:
 
 
 # ── Tables Assolement ─────────────────────────
+_TABLES_ASSOLEMENT = [
+    """
+    CREATE TABLE IF NOT EXISTS familles_botaniques (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom         TEXT(100) NOT NULL UNIQUE,
+        couleur_hex TEXT(7)   NOT NULL DEFAULT '#95a5a6'
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS cultures_ref (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom             TEXT(150) NOT NULL,
+        famille_id      INTEGER   DEFAULT NULL,
+        couleur_perso   TEXT(7)   DEFAULT NULL,
+        notes           TEXT      DEFAULT NULL,
+        FOREIGN KEY (famille_id) REFERENCES familles_botaniques(id)
+            ON DELETE SET NULL
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS planches (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        parcelle_id INTEGER NOT NULL,
+        numero      INTEGER NOT NULL,
+        longueur_m  REAL    DEFAULT NULL,
+        largeur_m   REAL    DEFAULT NULL,
+        notes       TEXT    DEFAULT NULL,
+        FOREIGN KEY (parcelle_id) REFERENCES parcelles(id) ON DELETE CASCADE,
+        UNIQUE (parcelle_id, numero)
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS assolement (
+        id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+        planche_id              INTEGER   NOT NULL,
+        culture_ref_id          INTEGER   NOT NULL,
+        variete                 TEXT(150) DEFAULT NULL,
+        annee                   INTEGER   NOT NULL,
+        date_semis              DATE      DEFAULT NULL,
+        date_premiere_recolte   DATE      DEFAULT NULL,
+        date_derniere_recolte   DATE      DEFAULT NULL,
+        nb_series               INTEGER   DEFAULT 1,
+        intervalle_semaines     INTEGER   DEFAULT NULL,
+        mode_plantation         TEXT CHECK(mode_plantation IN
+            ('semis_direct','plant_fait','plant_achete'))
+            DEFAULT 'semis_direct',
+        sous_abris              INTEGER   NOT NULL DEFAULT 0,
+        rendement_ml            REAL      DEFAULT NULL,
+        prix_kg                 REAL      DEFAULT NULL,
+        notes                   TEXT      DEFAULT NULL,
+        created_at              DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (planche_id)     REFERENCES planches(id)      ON DELETE CASCADE,
+        FOREIGN KEY (culture_ref_id) REFERENCES cultures_ref(id)  ON DELETE RESTRICT
+    );
+    """,
+]
+
+_INDEXES_ASSOLEMENT = [
+    "CREATE INDEX IF NOT EXISTS idx_planches_parcelle  ON planches(parcelle_id);",
+    "CREATE INDEX IF NOT EXISTS idx_assolement_planche ON assolement(planche_id);",
+    "CREATE INDEX IF NOT EXISTS idx_assolement_annee   ON assolement(annee);",
+    "CREATE INDEX IF NOT EXISTS idx_assolement_culture ON assolement(culture_ref_id);",
+]
+
+# Familles botaniques par défaut avec couleurs distinctes
+_FAMILLES_DEFAUT = [
+    ("Solanacées",      "#e74c3c"),   # rouge
+    ("Cucurbitacées",   "#e67e22"),   # orange
+    ("Alliacées",       "#9b59b6"),   # violet
+    ("Fabacées",        "#27ae60"),   # vert
+    ("Apiacées",        "#f1c40f"),   # jaune
+    ("Brassicacées",    "#3498db"),   # bleu
+    ("Astéracées",      "#1abc9c"),   # turquoise
+    ("Chénopodiacées",  "#2ecc71"),   # vert clair
+    ("Lamiées",         "#8e44ad"),   # violet foncé
+    ("Rosacées",        "#e91e63"),   # rose
+    ("Liliacées",       "#00bcd4"),   # cyan
+    ("Autres",          "#95a5a6"),   # gris
+]
+
+
+def init_assolement(cur):
+    for ddl in _TABLES_ASSOLEMENT:
+        cur.execute(ddl)
+    for idx in _INDEXES_ASSOLEMENT:
+        cur.execute(idx)
+    # Insérer les familles par défaut si absentes
+    for nom, couleur in _FAMILLES_DEFAUT:
+        cur.execute("""
+            INSERT OR IGNORE INTO familles_botaniques (nom, couleur_hex)
+            VALUES (?, ?)
+        """, (nom, couleur))
+
+
+# ── Helpers Assolement ────────────────────────
+def get_familles_botaniques() -> list:
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        cur.execute("SELECT * FROM familles_botaniques ORDER BY nom")
+        rows = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        return rows
+    except Exception as e:
+        debug.debug(f"[DB] get_familles_botaniques : {e}")
+        return []
+
+
+def get_cultures_ref() -> list:
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT cr.*, fb.nom AS famille_nom,
+                   COALESCE(cr.couleur_perso, fb.couleur_hex, '#95a5a6') AS couleur
+            FROM cultures_ref cr
+            LEFT JOIN familles_botaniques fb ON fb.id = cr.famille_id
+            ORDER BY cr.nom
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        return rows
+    except Exception as e:
+        debug.debug(f"[DB] get_cultures_ref : {e}")
+        return []
+
+
+def get_planches_parcelle(parcelle_id: int) -> list:
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT p.*, COUNT(a.id) AS nb_assolements
+            FROM planches p
+            LEFT JOIN assolement a ON a.planche_id = p.id
+            WHERE p.parcelle_id = ?
+            GROUP BY p.id
+            ORDER BY p.numero
+        """, (parcelle_id,))
+        rows = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        return rows
+    except Exception as e:
+        debug.debug(f"[DB] get_planches_parcelle : {e}")
+        return []
+
+
+def get_assolement_parcelle(parcelle_id: int, annee: int) -> list:
+    """Retourne toutes les entrées d'assolement pour une parcelle et une année."""
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT a.*,
+                   pl.numero AS planche_numero,
+                   pl.longueur_m, pl.largeur_m,
+                   cr.nom AS culture_nom,
+                   COALESCE(cr.couleur_perso, fb.couleur_hex, '#95a5a6') AS couleur,
+                   fb.nom AS famille_nom
+            FROM assolement a
+            JOIN planches pl          ON pl.id = a.planche_id
+            JOIN cultures_ref cr      ON cr.id = a.culture_ref_id
+            LEFT JOIN familles_botaniques fb ON fb.id = cr.famille_id
+            WHERE pl.parcelle_id = ? AND a.annee = ?
+            ORDER BY pl.numero, a.date_semis
+        """, (parcelle_id, annee))
+        rows = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        return rows
+    except Exception as e:
+        debug.debug(f"[DB] get_assolement_parcelle : {e}")
+        return []
+
+
+def get_historique_rotation(planche_id: int, nb_annees: int = 5) -> list:
+    """Historique de rotation d'une planche sur N années."""
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT a.annee, cr.nom AS culture_nom, a.variete,
+                   a.date_semis, a.date_premiere_recolte, a.date_derniere_recolte,
+                   COALESCE(cr.couleur_perso, fb.couleur_hex, '#95a5a6') AS couleur,
+                   fb.nom AS famille_nom
+            FROM assolement a
+            JOIN cultures_ref cr ON cr.id = a.culture_ref_id
+            LEFT JOIN familles_botaniques fb ON fb.id = cr.famille_id
+            WHERE a.planche_id = ?
+            ORDER BY a.annee DESC, a.date_semis
+            LIMIT ?
+        """, (planche_id, nb_annees * 5))
+        rows = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        return rows
+    except Exception as e:
+        debug.debug(f"[DB] get_historique_rotation : {e}")
+        return []
+
+
+# ── Tables Assolement ─────────────────────────
+_FAMILLES_BOTANIQUES_DEFAUT = [
+    ("Solanacées",      "#E74C3C"),  # rouge
+    ("Cucurbitacées",   "#F39C12"),  # orange
+    ("Alliacées",       "#9B59B6"),  # violet
+    ("Fabacées",        "#27AE60"),  # vert
+    ("Apiacées",        "#F1C40F"),  # jaune
+    ("Astéracées",      "#1ABC9C"),  # turquoise
+    ("Brassicacées",    "#3498DB"),  # bleu
+    ("Chénopodiacées",  "#E91E63"),  # rose
+    ("Poaceae",         "#795548"),  # marron
+    ("Autre",           "#95A5A6"),  # gris
+]
+
+_TABLE_FAMILLES = """
+    CREATE TABLE IF NOT EXISTS familles_botaniques (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom         TEXT(100) NOT NULL UNIQUE,
+        couleur_hex TEXT(7)   NOT NULL DEFAULT '#95A5A6'
+    );
+"""
+
+_TABLE_CULTURES_REF = """
+    CREATE TABLE IF NOT EXISTS cultures_ref (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom             TEXT(100) NOT NULL,
+        famille_id      INTEGER   DEFAULT NULL,
+        couleur_perso   TEXT(7)   DEFAULT NULL,
+        notes           TEXT      DEFAULT NULL,
+        FOREIGN KEY (famille_id) REFERENCES familles_botaniques(id)
+            ON DELETE SET NULL
+    );
+"""
+
+_TABLE_PLANCHES = """
+    CREATE TABLE IF NOT EXISTS planches (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        parcelle_id INTEGER NOT NULL,
+        numero      INTEGER NOT NULL,
+        longueur_m  REAL    DEFAULT NULL,
+        largeur_m   REAL    DEFAULT NULL,
+        notes       TEXT    DEFAULT NULL,
+        FOREIGN KEY (parcelle_id) REFERENCES parcelles(id) ON DELETE CASCADE,
+        UNIQUE (parcelle_id, numero)
+    );
+"""
+
+_TABLE_ASSOLEMENT = """
+    CREATE TABLE IF NOT EXISTS assolement (
+        id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+        planche_id              INTEGER NOT NULL,
+        culture_ref_id          INTEGER NOT NULL,
+        variete                 TEXT(150) DEFAULT NULL,
+        annee                   INTEGER   NOT NULL,
+        date_semis              DATE      DEFAULT NULL,
+        date_premiere_recolte   DATE      DEFAULT NULL,
+        date_derniere_recolte   DATE      DEFAULT NULL,
+        nb_series               INTEGER   DEFAULT 1,
+        intervalle_semaines     INTEGER   DEFAULT NULL,
+        mode_plantation         TEXT CHECK(mode_plantation IN
+                                    ('semis_direct','plant_fait','plant_achete'))
+                                DEFAULT 'semis_direct',
+        rendement_ml            REAL      DEFAULT NULL,
+        prix_kg                 REAL      DEFAULT NULL,
+        notes                   TEXT      DEFAULT NULL,
+        created_at              DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (planche_id)     REFERENCES planches(id)      ON DELETE CASCADE,
+        FOREIGN KEY (culture_ref_id) REFERENCES cultures_ref(id)  ON DELETE RESTRICT
+    );
+"""
+
+_INDEXES_ASSOLEMENT = [
+    "CREATE INDEX IF NOT EXISTS idx_assolement_planche ON assolement(planche_id);",
+    "CREATE INDEX IF NOT EXISTS idx_assolement_annee   ON assolement(annee);",
+    "CREATE INDEX IF NOT EXISTS idx_planches_parcelle  ON planches(parcelle_id);",
+]
+
+
+def init_assolement(cur):
+    """Crée les tables assolement et initialise les familles botaniques par défaut."""
+    cur.execute(_TABLE_FAMILLES)
+    cur.execute(_TABLE_CULTURES_REF)
+    cur.execute(_TABLE_PLANCHES)
+    cur.execute(_TABLE_ASSOLEMENT)
+    for idx in _INDEXES_ASSOLEMENT:
+        cur.execute(idx)
+
+    # Insérer les familles par défaut si la table est vide
+    cur.execute("SELECT COUNT(*) FROM familles_botaniques")
+    if cur.fetchone()[0] == 0:
+        cur.executemany(
+            "INSERT INTO familles_botaniques (nom, couleur_hex) VALUES (?, ?)",
+            _FAMILLES_BOTANIQUES_DEFAUT)
+        debug.debug("[DB] Familles botaniques par défaut insérées")
+
+
+# ── Helpers assolement ────────────────────────
+def get_familles() -> list:
+    try:
         conn = get_connection()
         cur  = conn.cursor()
         cur.execute("SELECT * FROM familles_botaniques ORDER BY nom")

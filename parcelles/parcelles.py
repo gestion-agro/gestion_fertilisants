@@ -288,9 +288,9 @@ class ParcellePage(QWidget):
         sys_btn.addWidget(self.btn_add_sys)
         sys_btn.addStretch()
         sys_lay.addLayout(sys_btn)
-        self.table_sys = QTableWidget(0, 4)
+        self.table_sys = QTableWidget(0, 5)
         self.table_sys.setHorizontalHeaderLabels(
-            ["Type", "Émetteurs / Débit", "Cultures couvertes", "Vol/h (L)"])
+            ["Nom", "Type", "Émetteurs / Débit", "Planches couvertes", "Vol/h (L)"])
         self.table_sys.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table_sys.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table_sys.setAlternatingRowColors(True)
@@ -350,7 +350,7 @@ class ParcellePage(QWidget):
     def _on_selection(self):
         row = self.table.currentRow()
         if row < 0:
-            self.btn_add_culture.setEnabled(False)
+            self.btn_add_sys.setEnabled(False)
             self._parcelle_courante = None
             return
         item = self.table.item(row, 0)
@@ -359,9 +359,7 @@ class ParcellePage(QWidget):
         parcelle_id = item.data(Qt.UserRole)
         self._parcelle_courante = parcelle_id
         self._afficher_detail(parcelle_id)
-        self._charger_cultures(parcelle_id)
         self._charger_systemes(parcelle_id)
-        self.btn_add_culture.setEnabled(self._peut_ecrire)
         self.btn_add_sys.setEnabled(self._peut_ecrire)
 
     def _afficher_detail(self, parcelle_id: int):
@@ -411,71 +409,7 @@ class ParcellePage(QWidget):
         except Exception:
             self.lbl_surf_occ.setText("—")
 
-    def _charger_cultures(self, parcelle_id: int):
-        try:
-            cultures = get_cultures_parcelle(parcelle_id)
-            self.table_cultures.setRowCount(0)
-            for c in cultures:
-                r = self.table_cultures.rowCount()
-                self.table_cultures.insertRow(r)
 
-                cat_lbl = CATEGORIES_CULTURE.get(c.get("categorie"), c.get("categorie"))
-                self.table_cultures.setItem(r, 0, QTableWidgetItem(cat_lbl))
-
-                if c.get("categorie") == "engrais_vert":
-                    nom = c.get("melange_nom") or "Engrais vert"
-                elif c.get("categorie") == "jachere":
-                    nom = "Jachère"
-                else:
-                    esp = c.get("espece") or "—"
-                    var = c.get("variete")
-                    nom = f"{esp} — {var}" if var else esp
-                self.table_cultures.setItem(r, 1, QTableWidgetItem(nom))
-
-                surf_m2 = c.get("surface_occupee_m2")
-                surf_txt = f"{surf_m2/10000:.3f} ha" if surf_m2 else "—"
-                self.table_cultures.setItem(r, 2, QTableWidgetItem(surf_txt))
-
-                if c.get("categorie") == "arbo":
-                    rend = c.get("rendement_ha")
-                    rend_txt = f"{rend} t/ha" if rend else "—"
-                elif c.get("categorie") == "maraichage":
-                    rend = c.get("rendement_ml")
-                    rend_txt = f"{rend} kg/m.l." if rend else "—"
-                else:
-                    rend_txt = "—"
-                self.table_cultures.setItem(r, 3, QTableWidgetItem(rend_txt))
-
-                if c.get("categorie") == "arbo":
-                    prix = c.get("prix_moyen_tonne")
-                    prix_txt = f"{prix} €/t" if prix else "—"
-                elif c.get("categorie") == "maraichage":
-                    prix = c.get("prix_moyen_kg")
-                    prix_txt = f"{prix} €/kg" if prix else "—"
-                else:
-                    prix_txt = "—"
-                self.table_cultures.setItem(r, 4, QTableWidgetItem(prix_txt))
-
-                self.table_cultures.item(r, 0).setData(Qt.UserRole, c["id"])
-
-                if c.get("categorie") == "jachere":
-                    for col in range(5):
-                        item = self.table_cultures.item(r, col)
-                        if item:
-                            item.setForeground(QColor("#9ca3af"))
-                            f = item.font(); f.setItalic(True); item.setFont(f)
-                elif c.get("categorie") == "engrais_vert":
-                    for col in range(5):
-                        item = self.table_cultures.item(r, col)
-                        if item:
-                            item.setForeground(QColor("#15803d"))
-                elif c.get("categorie") == "arbo":
-                    for col in range(5):
-                        item = self.table_cultures.item(r, col)
-                        if item:
-                            item.setForeground(QColor("#92400e"))
-        except Exception:
-            traceback.print_exc()
 
     # ──────────────────────────────────────────
     # Actions Parcelle
@@ -529,58 +463,6 @@ class ParcellePage(QWidget):
         except Exception:
             traceback.print_exc()
 
-    def _ajouter_culture(self):
-        if not self._parcelle_courante:
-            return
-        dlg = DialogCulture(parcelle_id=self._parcelle_courante, parent=self)
-        if dlg.exec() == QDialog.Accepted:
-            self._charger_cultures(self._parcelle_courante)
-            self._on_selection()
-            self.parcelle_modifiee.emit()
-
-    def _menu_culture(self, pos):
-        row = self.table_cultures.rowAt(pos.y())
-        if row < 0:
-            return
-        item = self.table_cultures.item(row, 0)
-        culture_id = item.data(Qt.UserRole)
-        menu = QMenu(self)
-        if self._peut_ecrire:
-            menu.addAction("Modifier",
-                lambda: self._modifier_culture(culture_id))
-        if self._peut_supprimer:
-            menu.addSeparator()
-            menu.addAction("Supprimer",
-                lambda: self._supprimer_culture(culture_id))
-        if not menu.isEmpty():
-            menu.exec(self.table_cultures.viewport().mapToGlobal(pos))
-
-    def _modifier_culture(self, culture_id: int):
-        dlg = DialogCulture(
-            parcelle_id=self._parcelle_courante,
-            culture_id=culture_id, parent=self)
-        if dlg.exec() == QDialog.Accepted:
-            self._charger_cultures(self._parcelle_courante)
-            self._on_selection()
-            self.parcelle_modifiee.emit()
-
-    def _supprimer_culture(self, culture_id: int):
-        rep = QMessageBox.question(self, "Confirmer",
-            "Supprimer cette culture de la parcelle ?")
-        if rep == QMessageBox.Yes:
-            try:
-                conn = get_connection()
-                cur = conn.cursor()
-                cur.execute("DELETE FROM cultures_parcelle WHERE id=?",
-                            (culture_id,))
-                conn.commit()
-                cur.close()
-                self._charger_cultures(self._parcelle_courante)
-                self._on_selection()
-                self.parcelle_modifiee.emit()
-            except Exception:
-                traceback.print_exc()
-
     def _charger_systemes(self, parcelle_id: int):
         try:
             conn = get_connection()
@@ -598,8 +480,10 @@ class ParcellePage(QWidget):
                 r = self.table_sys.rowCount()
                 self.table_sys.insertRow(r)
                 self.table_sys.setItem(r, 0,
+                    QTableWidgetItem(s.get("nom") or "—"))
+                self.table_sys.setItem(r, 1,
                     QTableWidgetItem(s.get("type_emetteur", "").capitalize()))
-                self.table_sys.setItem(r, 1, QTableWidgetItem(
+                self.table_sys.setItem(r, 2, QTableWidgetItem(
                     f"{s.get('nb_emetteurs', 0)} × {s.get('debit_lh', 0)} L/h"))
 
                 cur.execute("""
@@ -621,10 +505,10 @@ class ParcellePage(QWidget):
                     cultures_txt = ", ".join(noms)
                 else:
                     cultures_txt = "— Aucune culture liée —"
-                self.table_sys.setItem(r, 2, QTableWidgetItem(cultures_txt))
-
+                self.table_sys.setItem(r, 3, QTableWidgetItem(cultures_txt))
+                
                 vol_h = s.get("nb_emetteurs", 0) * s.get("debit_lh", 0)
-                self.table_sys.setItem(r, 3, QTableWidgetItem(f"{vol_h:.0f}"))
+                self.table_sys.setItem(r, 4, QTableWidgetItem(f"{vol_h:.0f}"))
                 self.table_sys.item(r, 0).setData(Qt.UserRole, s["id"])
             cur.close()
         except Exception:
@@ -636,6 +520,7 @@ class ParcellePage(QWidget):
         dlg = DialogSysteme(parcelle_id=self._parcelle_courante, parent=self)
         if dlg.exec() == QDialog.Accepted:
             self._charger_systemes(self._parcelle_courante)
+            self.parcelle_modifiee.emit()
 
     def _menu_systeme(self, pos):
         row = self.table_sys.rowAt(pos.y())
@@ -658,6 +543,7 @@ class ParcellePage(QWidget):
                             parcelle_id=self._parcelle_courante, parent=self)
         if dlg.exec() == QDialog.Accepted:
             self._charger_systemes(self._parcelle_courante)
+            self.parcelle_modifiee.emit()
 
     def _supprimer_systeme(self, systeme_id: int):
         rep = QMessageBox.question(self, "Confirmer", "Supprimer ce système ?")
@@ -670,6 +556,7 @@ class ParcellePage(QWidget):
                 conn.commit()
                 cur.close()
                 self._charger_systemes(self._parcelle_courante)
+                self.parcelle_modifiee.emit()
             except Exception:
                 traceback.print_exc()
 
@@ -1395,6 +1282,9 @@ class DialogSysteme(QDialog):
     def _build_ui(self):
         layout = QVBoxLayout(self)
         form = QFormLayout()
+        self.inp_nom = QLineEdit()
+        self.inp_nom.setPlaceholderText("Ex: Goutteurs rang nord, Asperseurs serre A...")
+        form.addRow("Nom", self.inp_nom)
         form.setSpacing(10)
 
         self.combo_type = QComboBox()
@@ -1466,7 +1356,12 @@ class DialogSysteme(QDialog):
 
         layout.addLayout(form)
 
-        sep = QLabel("── Cultures couvertes par ce système ──")
+        self.chk_par_planche = QCheckBox(
+            "Créer un système identique pour chaque planche sélectionnée")
+        self.chk_par_planche.setStyleSheet("font-size: 11px; color: #2563EB;")
+        layout.addWidget(self.chk_par_planche)
+
+        sep = QLabel("── Planches couvertes par ce système ──")
         sep.setStyleSheet("color:gray; font-size:11px;")
         layout.addWidget(sep)
 
@@ -1501,21 +1396,18 @@ class DialogSysteme(QDialog):
         self.inp_longueur_manuelle.setEnabled(checked)
         self._calc_goutteurs()
 
-    def _longueur_cultures_selectionnees(self) -> float:
-        """Somme des longueurs (nb_planches × longueur_planche) des
-        cultures maraîchage sélectionnées qui ont ces infos."""
+    def _longueur_cultures_selectionnees(self) -> tuple:
         total = 0.0
         manquantes = []
         for i in range(self.liste_cultures.count()):
             item = self.liste_cultures.item(i)
             if not item.isSelected():
                 continue
-            cid = item.data(Qt.UserRole)
-            info = self._cultures_info.get(cid, {})
-            nb_p = info.get("nb_planches")
-            long_p = info.get("longueur_planche")
-            if nb_p and long_p:
-                total += nb_p * long_p
+            pid = item.data(Qt.UserRole)
+            info = self._cultures_info.get(pid, {})
+            lon = info.get("longueur_planche")
+            if lon:
+                total += lon
             else:
                 manquantes.append(item.text())
         return total, manquantes
@@ -1566,24 +1458,21 @@ class DialogSysteme(QDialog):
             conn = get_connection()
             cur = conn.cursor()
             cur.execute("""
-                SELECT id, categorie, espece, variete, melange_nom,
-                       nb_planches, longueur_planche
-                FROM cultures_parcelle
-                WHERE parcelle_id=? AND actif=1
-                ORDER BY id
+                SELECT id, numero, longueur_m, largeur_m, sous_parcelle
+                FROM planches
+                WHERE parcelle_id=?
+                ORDER BY numero
             """, (self.parcelle_id,))
-            for cid, cat, esp, var, melange, nb_p, long_p in cur.fetchall():
-                self._cultures_info[cid] = {
-                    "nb_planches": nb_p, "longueur_planche": long_p}
-                if cat == "jachere":
-                    label = "🟫 Jachère"
-                elif cat == "engrais_vert":
-                    label = f"🌱 {melange or 'Engrais vert'}"
-                else:
-                    icon = "🥕" if cat == "maraichage" else "🌳"
-                    label = f"{icon} {esp or '—'}" + (f" — {var}" if var else "")
+            for pid, num, lon, lar, sp in cur.fetchall():
+                self._cultures_info[pid] = {
+                    "nb_planches": 1, "longueur_planche": lon}
+                label = f"Planche {num}"
+                if sp:
+                    label = f"{sp} — Planche {num}"
+                if lon:
+                    label += f" ({lon}m)"
                 item = QListWidgetItem(label)
-                item.setData(Qt.UserRole, cid)
+                item.setData(Qt.UserRole, pid)
                 self.liste_cultures.addItem(item)
             cur.close()
         except Exception:
@@ -1602,9 +1491,10 @@ class DialogSysteme(QDialog):
             self.inp_nb.setValue(s.get("nb_emetteurs", 1))
             self.inp_debit.setValue(s.get("debit_lh", 1.0))
             self.inp_desc.setText(s.get("description") or "")
+            self.inp_nom.setText(s.get("nom") or "")
 
-            from db import get_cultures_systeme
-            cultures_liees = get_cultures_systeme(systeme_id)
+            from db import get_planches_systeme
+            cultures_liees = get_planches_systeme(systeme_id)
             ids_liees = {c["id"] for c in cultures_liees}
             for i in range(self.liste_cultures.count()):
                 item = self.liste_cultures.item(i)
@@ -1654,26 +1544,64 @@ class DialogSysteme(QDialog):
 
         try:
             conn = get_connection()
-            cur = conn.cursor()
+            cur  = conn.cursor()
+
             if self.systeme_id:
+                # Modification : un seul système
+                desc  = self.inp_desc.text().strip() or None
+                nom   = self.inp_nom.text().strip() or None
                 cur.execute("""
                     UPDATE irrigation_systemes
-                    SET type_emetteur=?, nb_emetteurs=?, debit_lh=?, description=?
+                    SET type_emetteur=?, nb_emetteurs=?, debit_lh=?,
+                        description=?, nom=?
                     WHERE id=?
-                """, (type_emetteur, nb, debit, desc, self.systeme_id))
+                """, (type_emetteur, nb, debit, desc, nom, self.systeme_id))
                 sid = self.systeme_id
+                conn.commit()
+                cur.close()
+                from db import set_planches_systeme
+                set_planches_systeme(sid, culture_ids)
+
+            elif self.chk_par_planche.isChecked() and len(culture_ids) > 1:
+                # Création : un système par planche sélectionnée
+                cur.close()
+                distance_cm = self.inp_distance_goutteurs.value()
+                for pid in culture_ids:
+                    # Recalculer nb goutteurs pour cette planche uniquement
+                    info = self._cultures_info.get(pid, {})
+                    lon_planche = info.get("longueur_planche") or 0
+                    if type_emetteur == "goutteur" and lon_planche > 0 and distance_cm > 0:
+                        nb_planche = int((lon_planche * 100) / distance_cm)
+                    else:
+                        nb_planche = nb  # asperseur/autre : garder la valeur saisie
+
+                    conn2 = get_connection()
+                    cur2  = conn2.cursor()
+                    cur2.execute("""
+                        INSERT INTO irrigation_systemes
+                        (parcelle_id, type_emetteur, nb_emetteurs, debit_lh,
+                         description, nom)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (self.parcelle_id, type_emetteur, nb_planche, debit, desc, nom))
+                    sid = cur2.lastrowid
+                    conn2.commit()
+                    cur2.close()
+                    from db import set_planches_systeme
+                    set_planches_systeme(sid, [pid])
+
             else:
+                # Création : un système pour toutes les planches
                 cur.execute("""
                     INSERT INTO irrigation_systemes
-                    (parcelle_id, type_emetteur, nb_emetteurs, debit_lh, description)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (self.parcelle_id, type_emetteur, nb, debit, desc))
+                    (parcelle_id, type_emetteur, nb_emetteurs, debit_lh,
+                     description, nom)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (self.parcelle_id, type_emetteur, nb, debit, desc, nom))
                 sid = cur.lastrowid
-            conn.commit()
-            cur.close()
-
-            from db import set_cultures_systeme
-            set_cultures_systeme(sid, culture_ids)
+                conn.commit()
+                cur.close()
+                from db import set_planches_systeme
+                set_planches_systeme(sid, culture_ids)
 
             self.accept()
         except Exception as e:

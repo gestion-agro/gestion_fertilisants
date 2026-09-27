@@ -14,41 +14,35 @@ from db import (get_connection, peut_action,
 import utils.debug as debug
 import traceback
 
-# ── Constantes de rendu ───────────────────────
-H_ENTETE    = 36   # hauteur en-tête semaines
-H_PARCELLE  = 28   # hauteur ligne titre parcelle
-H_PLANCHE   = 28   # hauteur ligne planche
-L_NOM       = 200  # largeur colonne noms
-L_SEMAINE   = 18   # largeur d'une colonne semaine (52 × 18 = 936px)
-W_PALETTE   = 220  # largeur du panneau gauche cultures
+# ── Constantes ────────────────────────────────
+H_ENTETE   = 36
+H_PARCELLE = 28
+H_PLANCHE  = 28
+L_NOM      = 200
+L_SEMAINE  = 18
+W_PALETTE  = 220
 
 MOIS_COURTS = ["Jan","Fév","Mar","Avr","Mai","Jun",
                 "Jul","Aoû","Sep","Oct","Nov","Déc"]
 
 
-def semaine_to_x(semaine: int) -> int:
-    """Position X de la semaine (1-52) dans la grille."""
-    return L_NOM + (semaine - 1) * L_SEMAINE
+def semaine_to_x(semaine: float) -> int:
+    return L_NOM + int((semaine - 1) * L_SEMAINE)
 
 
 def date_to_semaine(d: str, annee: int) -> float:
-    """Convertit 'YYYY-MM-DD' en numéro de semaine (1.0-52.0) dans l'année."""
     try:
         dt = datetime.strptime(d, "%Y-%m-%d").date()
     except Exception:
         return 1.0
-    debut_annee = date(annee, 1, 1)
-    if dt.year < annee:
-        return 1.0
-    if dt.year > annee:
-        return 53.0
-    jours = (dt - debut_annee).days
+    debut = date(annee, 1, 1)
+    if dt.year < annee: return 1.0
+    if dt.year > annee: return 53.0
     total = 366 if annee % 4 == 0 else 365
-    return 1.0 + jours / total * 52.0
+    return 1.0 + (dt - debut).days / total * 52.0
 
 
 def semaine_to_date(semaine: float, annee: int) -> date:
-    """Convertit un numéro de semaine (1-52) en date."""
     debut = date(annee, 1, 1)
     total = 366 if annee % 4 == 0 else 365
     jours = int((semaine - 1) / 52.0 * total)
@@ -63,7 +57,7 @@ class AssolementPage(QWidget):
         self._peut_ecrire    = peut_action(current_user, "parcelles", "ecriture")
         self._peut_supprimer = peut_action(current_user, "parcelles", "suppression")
         self._annee          = datetime.now().year
-        self._culture_active = None  # dict culture_ref sélectionnée dans palette
+        self._culture_active = None
         self._build_ui()
         self._charger()
 
@@ -72,9 +66,8 @@ class AssolementPage(QWidget):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(6)
 
-        # ── Barre du haut ─────────────────────
+        # Barre du haut
         barre = QHBoxLayout()
-
         titre = QLabel("Plan d'assolement")
         f = QFont(); f.setPointSize(14); f.setBold(True)
         titre.setFont(f)
@@ -83,10 +76,9 @@ class AssolementPage(QWidget):
 
         barre.addWidget(QLabel("Année :"))
         self.combo_annee = QComboBox()
-        annee_act = self._annee
-        for a in range(annee_act - 4, annee_act + 3):
+        for a in range(self._annee - 4, self._annee + 3):
             self.combo_annee.addItem(str(a), a)
-        self.combo_annee.setCurrentText(str(annee_act))
+        self.combo_annee.setCurrentText(str(self._annee))
         self.combo_annee.currentIndexChanged.connect(self._on_annee_changed)
         barre.addWidget(self.combo_annee)
 
@@ -99,55 +91,85 @@ class AssolementPage(QWidget):
         if self._peut_ecrire:
             btn_planches = QPushButton("⚙ Planches")
             btn_planches.clicked.connect(self._dialog_gerer_planches)
-            btn_planches.setStyleSheet("""
-                QPushButton { background:#2563EB; color:white;
-                    border-radius:4px; padding:4px 10px; }
-                QPushButton:hover { background:#1d4ed8; }
-            """)
+            btn_planches.setStyleSheet(
+                "QPushButton{background:#2563EB;color:white;"
+                "border-radius:4px;padding:4px 10px;}"
+                "QPushButton:hover{background:#1d4ed8;}")
             barre.addWidget(btn_planches)
 
         root.addLayout(barre)
 
-        # ── Corps principal : palette | grille ─
+        # Corps : palette gauche | droite (grille + séries)
         corps = QHBoxLayout()
         corps.setSpacing(0)
 
-        # Panneau gauche : palette de cultures
+        # Palette gauche
         self.palette = PaletteCultures(
             peut_ecrire=self._peut_ecrire,
-            on_select=self._on_culture_selectionnee)
+            on_select=self._on_culture_selectionnee,
+            on_nouvelle_culture=self._dialog_nouvelle_culture)
         self.palette.setFixedWidth(W_PALETTE)
         corps.addWidget(self.palette)
 
-        # Séparateur
-        sep = QFrame()
-        sep.setFrameShape(QFrame.VLine)
-        sep.setStyleSheet("color: #e5e7eb;")
+        sep = QFrame(); sep.setFrameShape(QFrame.VLine)
+        sep.setStyleSheet("color:#e5e7eb;")
         corps.addWidget(sep)
 
-        # Grille d'assolement
+        # Partie droite
+        droite = QWidget()
+        dl = QVBoxLayout(droite)
+        dl.setContentsMargins(0, 0, 0, 0)
+        dl.setSpacing(0)
+
+        # Grille
         self.grille_scroll = QScrollArea()
         self.grille_scroll.setWidgetResizable(True)
         self.grille_scroll.setFrameShape(QFrame.NoFrame)
+        self.grille_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.canvas = GrilleCanvas(
             annee=self._annee,
             peut_ecrire=self._peut_ecrire,
             peut_supprimer=self._peut_supprimer,
-            on_assigner=self._assigner_culture,
             on_modifier=self._dialog_modifier,
             on_supprimer=self._supprimer_culture,
-            get_culture_active=lambda: self._culture_active,
+            on_drop_serie=self._placer_serie,
         )
         self.grille_scroll.setWidget(self.canvas)
-        corps.addWidget(self.grille_scroll, 1)
+        dl.addWidget(self.grille_scroll, 1)
 
+        # Séparateur + label zone séries
+        sep2 = QFrame(); sep2.setFrameShape(QFrame.HLine)
+        sep2.setStyleSheet("color:#e5e7eb;")
+        dl.addWidget(sep2)
+
+        lbl_ser = QLabel("📋 Séries — glisser vers le calendrier")
+        lbl_ser.setStyleSheet(
+            "font-size:10px;color:#6b7280;padding:2px 4px;background:#f8fafc;")
+        dl.addWidget(lbl_ser)
+
+        # Zone séries (scroll synchronisé)
+        self.series_scroll = QScrollArea()
+        self.series_scroll.setFrameShape(QFrame.NoFrame)
+        self.series_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.series_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.zone_series = ZoneSeries()
+        self.series_scroll.setWidget(self.zone_series)
+        self.series_scroll.setFixedHeight(68)
+        dl.addWidget(self.series_scroll)
+
+        # Synchronisation scroll horizontal
+        self.grille_scroll.horizontalScrollBar().valueChanged.connect(
+            self.series_scroll.horizontalScrollBar().setValue)
+        self.series_scroll.horizontalScrollBar().valueChanged.connect(
+            self.grille_scroll.horizontalScrollBar().setValue)
+
+        corps.addWidget(droite, 1)
         root.addLayout(corps, 1)
 
-        # Barre de statut
+        # Statut
         self.lbl_statut = QLabel(
-            "💡 Sélectionnez une culture à gauche puis cliquez sur une planche")
-        self.lbl_statut.setStyleSheet(
-            "color: #6b7280; font-size: 11px; padding: 2px 4px;")
+            "💡 Glissez une série depuis la zone du bas vers une planche")
+        self.lbl_statut.setStyleSheet("color:#6b7280;font-size:11px;")
         root.addWidget(self.lbl_statut)
 
     # ──────────────────────────────────────────
@@ -155,43 +177,22 @@ class AssolementPage(QWidget):
     # ──────────────────────────────────────────
     def _on_culture_selectionnee(self, culture: dict):
         self._culture_active = culture
-        nom = culture["nom"] if culture else "—"
-        self.lbl_statut.setText(
-            f"✅ Culture sélectionnée : {nom} — "
-            "cliquez sur une planche pour l'assigner")
-        self.canvas.update()
 
     def _on_annee_changed(self):
         self._annee = self.combo_annee.currentData()
         self.canvas.annee = self._annee
         self._charger_grille()
 
-    def _assigner_culture(self, planche_id: int,
-                           semaine_debut: float, semaine_fin: float):
-        """Appelé quand l'utilisateur clique/drag sur une planche."""
-        if not self._culture_active:
-            QMessageBox.information(self, "Aucune culture sélectionnée",
-                "Sélectionnez d'abord une culture dans le panneau de gauche.")
-            return
-
-        date_semis = semaine_to_date(semaine_debut, self._annee)
-        date_fin   = semaine_to_date(semaine_fin,   self._annee)
-
-        dlg = DialogCultureAssolement(
-            annee=self._annee,
-            planche_id_preselect=planche_id,
-            culture_ref_id_preselect=self._culture_active["id"],
-            date_semis_preselect=date_semis,
-            date_fin_preselect=date_fin,
-            parent=self)
+    def _dialog_nouvelle_culture(self):
+        """Ouvre le grand dialog complet depuis le bouton + Nouvelle culture."""
+        dlg = DialogCultureAssolement(annee=self._annee, parent=self)
         if dlg.exec() == QDialog.Accepted:
+            self.palette.recharger()
             self._charger_grille()
 
     def _dialog_modifier(self, assolement_id: int):
         dlg = DialogCultureAssolement(
-            annee=self._annee,
-            assolement_id=assolement_id,
-            parent=self)
+            annee=self._annee, assolement_id=assolement_id, parent=self)
         if dlg.exec() == QDialog.Accepted:
             self._charger_grille()
 
@@ -210,6 +211,50 @@ class AssolementPage(QWidget):
             except Exception:
                 traceback.print_exc()
 
+    def _placer_serie(self, assol_id: int, planche_id: int,
+                       semaine: float):
+        """Appelé par GrilleCanvas quand un badge est déposé sur une planche."""
+        nouvelle_date = semaine_to_date(semaine, self._annee)
+        try:
+            conn = get_connection()
+            cur  = conn.cursor()
+            cur.execute("""
+                SELECT date_semis, date_premiere_recolte, date_derniere_recolte
+                FROM assolement WHERE id=?
+            """, (assol_id,))
+            row = cur.fetchone()
+            if row and row[0] and row[2]:
+                try:
+                    d_orig  = datetime.strptime(row[0], "%Y-%m-%d").date()
+                    d_prem  = (datetime.strptime(row[1], "%Y-%m-%d").date()
+                               if row[1] else None)
+                    d_dern  = datetime.strptime(row[2], "%Y-%m-%d").date()
+                    delta_p = (d_prem - d_orig) if d_prem else timedelta(0)
+                    delta_d = d_dern - d_orig
+                    prem_str = (nouvelle_date + delta_p).strftime("%Y-%m-%d")
+                    dern_str = (nouvelle_date + delta_d).strftime("%Y-%m-%d")
+                except Exception:
+                    prem_str = None
+                    dern_str = nouvelle_date.strftime("%Y-%m-%d")
+            else:
+                prem_str = None
+                dern_str = nouvelle_date.strftime("%Y-%m-%d")
+
+            cur.execute("""
+                UPDATE assolement SET
+                    planche_id=?, date_semis=?,
+                    date_premiere_recolte=?, date_derniere_recolte=?
+                WHERE id=?
+            """, (planche_id, nouvelle_date.strftime("%Y-%m-%d"),
+                  prem_str, dern_str, assol_id))
+            conn.commit()
+            cur.close()
+            debug.debug(f"[assolement] Série {assol_id} → planche {planche_id} "
+                        f"sem.{semaine:.0f}")
+            self._charger_grille()
+        except Exception:
+            traceback.print_exc()
+
     def _dialog_gerer_planches(self):
         dlg = DialogGererPlanches(parent=self)
         dlg.exec()
@@ -227,8 +272,7 @@ class AssolementPage(QWidget):
         try:
             conn = get_connection()
             cur  = conn.cursor()
-            cur.execute(
-                "SELECT id, nom FROM parcelles WHERE actif=1 ORDER BY nom")
+            cur.execute("SELECT id, nom FROM parcelles WHERE actif=1 ORDER BY nom")
             self.combo_parcelle.blockSignals(True)
             self.combo_parcelle.clear()
             self.combo_parcelle.addItem("Toutes", None)
@@ -247,21 +291,17 @@ class AssolementPage(QWidget):
             cur  = conn.cursor()
             if parcelle_id:
                 cur.execute("""
-                    SELECT pl.*, p.nom AS parcelle_nom,
-                           p.id AS parcelle_id
+                    SELECT pl.*, p.nom AS parcelle_nom, p.id AS parcelle_id
                     FROM planches pl
                     JOIN parcelles p ON p.id = pl.parcelle_id
-                    WHERE pl.parcelle_id = ?
-                    ORDER BY p.nom, pl.numero
+                    WHERE pl.parcelle_id=? ORDER BY p.nom, pl.numero
                 """, (parcelle_id,))
             else:
                 cur.execute("""
-                    SELECT pl.*, p.nom AS parcelle_nom,
-                           p.id AS parcelle_id
+                    SELECT pl.*, p.nom AS parcelle_nom, p.id AS parcelle_id
                     FROM planches pl
                     JOIN parcelles p ON p.id = pl.parcelle_id
-                    WHERE p.actif = 1
-                    ORDER BY p.nom, pl.numero
+                    WHERE p.actif=1 ORDER BY p.nom, pl.numero
                 """)
             planches = [dict(r) for r in cur.fetchall()]
             cur.close()
@@ -269,22 +309,170 @@ class AssolementPage(QWidget):
             traceback.print_exc()
             planches = []
 
-        assolement = get_assolement_annee(annee, parcelle_id)
-        self.canvas.charger(planches, assolement)
-        debug.debug(f"[assolement] {len(planches)} planche(s), "
-                    f"{len(assolement)} culture(s) en {annee}")
+        # Séries placées → grille
+        placees = [a for a in get_assolement_annee(annee, parcelle_id)
+                   if a.get("planche_id")]
+
+        # Séries non placées → zone séries
+        try:
+            conn = get_connection()
+            cur  = conn.cursor()
+            cur.execute("""
+                SELECT a.*,
+                       cr.nom           AS culture_nom,
+                       cr.couleur_perso AS culture_couleur_perso,
+                       fb.nom           AS famille_nom,
+                       fb.couleur_hex   AS famille_couleur
+                FROM assolement a
+                JOIN cultures_ref cr ON cr.id = a.culture_ref_id
+                LEFT JOIN familles_botaniques fb ON fb.id = cr.famille_id
+                WHERE a.annee=? AND a.planche_id IS NULL
+                ORDER BY a.date_semis
+            """, (annee,))
+            non_placees = [dict(r) for r in cur.fetchall()]
+            cur.close()
+        except Exception:
+            traceback.print_exc()
+            non_placees = []
+
+        self.canvas.charger(planches, placees)
+        self.zone_series.charger(non_placees, annee)
+        self.zone_series.setMinimumWidth(L_NOM + 52 * L_SEMAINE + 20)
+        debug.debug(f"[assolement] {len(placees)} placées, "
+                    f"{len(non_placees)} non placées en {annee}")
 
     def recharger(self):
         self._charger()
 
 
-# ── Panneau gauche : palette de cultures ──────
-class PaletteCultures(QWidget):
-    def __init__(self, peut_ecrire: bool, on_select, parent=None):
+# ── Zone séries (canvas QPainter synchronisé) ─
+class ZoneSeries(QWidget):
+    """Canvas affichant les séries non placées, aligné sur les semaines."""
+
+    MIME_TYPE = "application/x-assol-id"
+
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.peut_ecrire = peut_ecrire
-        self.on_select   = on_select
-        self._culture_active_id = None
+        self._series = []
+        self._annee  = datetime.now().year
+        self._hover  = None
+        self.setMouseTracking(True)
+        self.setFixedHeight(60)
+        self.setMinimumWidth(L_NOM + 52 * L_SEMAINE + 20)
+
+    def charger(self, series: list, annee: int):
+        self._series = series
+        self._annee  = annee
+        self.update()
+
+    def _rects(self):
+        rects = []
+        for a in self._series:
+            s1 = date_to_semaine(
+                a.get("date_semis") or f"{self._annee}-01-01", self._annee)
+            s2 = date_to_semaine(
+                a.get("date_derniere_recolte") or f"{self._annee}-12-31",
+                self._annee)
+            if s2 <= s1: s2 = s1 + 8
+            x1 = semaine_to_x(s1)
+            x2 = semaine_to_x(min(s2, 53))
+            if x2 - x1 < 14: x2 = x1 + 14
+            rects.append((QRect(x1 + 1, 4, x2 - x1 - 2, self.height() - 8), a))
+        return rects
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        w = L_NOM + 52 * L_SEMAINE
+
+        painter.fillRect(0, 0, w, self.height(), QColor("#f8fafc"))
+        painter.setPen(QPen(QColor("#e5e7eb"), 1))
+        painter.drawLine(0, 0, w, 0)
+
+        # Col nom
+        painter.fillRect(0, 0, L_NOM, self.height(), QColor("#f3f4f6"))
+        font = QFont(); font.setPointSize(8)
+        painter.setFont(font)
+        painter.setPen(QColor("#6b7280"))
+        painter.drawText(QRect(0, 0, L_NOM, self.height()),
+                         Qt.AlignCenter, "Non placées")
+
+        # Grille légère
+        painter.setPen(QPen(QColor("#f0f0f0"), 1))
+        for s in range(1, 53):
+            painter.drawLine(semaine_to_x(s), 0, semaine_to_x(s), self.height())
+
+        font_b = QFont(); font_b.setPointSize(8)
+        painter.setFont(font_b)
+        for rect, a in self._rects():
+            couleur = QColor(get_couleur_culture(a))
+            if self._hover and self._hover.get("id") == a.get("id"):
+                couleur = couleur.lighter(115)
+            painter.fillRect(rect, couleur)
+            painter.setPen(QPen(couleur.darker(130), 1))
+            painter.drawRoundedRect(rect, 3, 3)
+            painter.setPen(Qt.white)
+            nom = a.get("culture_nom", "")
+            if a.get("variete"):
+                nom += f" · {a['variete']}"
+            nom = painter.fontMetrics().elidedText(
+                nom, Qt.ElideRight, rect.width() - 6)
+            painter.drawText(rect.adjusted(3, 0, -3, 0),
+                             Qt.AlignVCenter | Qt.AlignLeft, nom)
+        painter.end()
+
+    def mouseMoveEvent(self, event):
+        pos = event.pos()
+        hover = None
+        for rect, a in self._rects():
+            if rect.contains(pos):
+                hover = a
+                break
+        if hover != self._hover:
+            self._hover = hover
+            self.setCursor(Qt.OpenHandCursor if hover else Qt.ArrowCursor)
+            self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() != Qt.LeftButton:
+            return
+        pos = event.pos()
+        for rect, a in self._rects():
+            if rect.contains(pos):
+                drag = QDrag(self)
+                mime = QMimeData()
+                mime.setData(self.MIME_TYPE,
+                             str(a["id"]).encode())
+                drag.setMimeData(mime)
+                # Aperçu pixmap
+                pm = QPixmap(rect.width(), rect.height())
+                pm.fill(Qt.transparent)
+                p = QPainter(pm)
+                p.setRenderHint(QPainter.Antialiasing)
+                couleur = QColor(get_couleur_culture(a))
+                p.fillRect(pm.rect(), couleur)
+                p.setPen(Qt.white)
+                f = QFont(); f.setPointSize(8)
+                p.setFont(f)
+                p.drawText(pm.rect().adjusted(3, 0, -3, 0),
+                           Qt.AlignVCenter | Qt.AlignLeft,
+                           a.get("culture_nom", ""))
+                p.end()
+                drag.setPixmap(pm)
+                drag.setHotSpot(pos - rect.topLeft())
+                drag.exec(Qt.MoveAction)
+                return
+
+
+# ── Palette cultures ──────────────────────────
+class PaletteCultures(QWidget):
+    def __init__(self, peut_ecrire: bool, on_select,
+                 on_nouvelle_culture, parent=None):
+        super().__init__(parent)
+        self.peut_ecrire         = peut_ecrire
+        self.on_select           = on_select
+        self.on_nouvelle_culture = on_nouvelle_culture
+        self._culture_active_id  = None
         self._build_ui()
         self.recharger()
 
@@ -298,13 +486,11 @@ class PaletteCultures(QWidget):
         lbl.setFont(f)
         lay.addWidget(lbl)
 
-        # Recherche
         self.inp_recherche = QLineEdit()
         self.inp_recherche.setPlaceholderText("🔍 Rechercher...")
         self.inp_recherche.textChanged.connect(self._filtrer)
         lay.addWidget(self.inp_recherche)
 
-        # Liste scrollable
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
@@ -316,22 +502,19 @@ class PaletteCultures(QWidget):
         scroll.setWidget(self._liste_widget)
         lay.addWidget(scroll, 1)
 
-        # Boutons
         if self.peut_ecrire:
             btn_new = QPushButton("+ Nouvelle culture")
-            btn_new.setStyleSheet("""
-                QPushButton { background:#16a34a; color:white;
-                    border-radius:4px; padding:4px; font-size:11px; }
-                QPushButton:hover { background:#15803d; }
-            """)
-            btn_new.clicked.connect(self._creer_culture)
+            btn_new.setStyleSheet(
+                "QPushButton{background:#16a34a;color:white;"
+                "border-radius:4px;padding:4px;font-size:11px;}"
+                "QPushButton:hover{background:#15803d;}")
+            btn_new.clicked.connect(self.on_nouvelle_culture)
             lay.addWidget(btn_new)
 
-        # Légende familles
         sep = QFrame(); sep.setFrameShape(QFrame.HLine)
         lay.addWidget(sep)
         lbl_fam = QLabel("Familles botaniques :")
-        lbl_fam.setStyleSheet("font-size: 10px; color: #6b7280;")
+        lbl_fam.setStyleSheet("font-size:10px;color:#6b7280;")
         lay.addWidget(lbl_fam)
         self._legende_lay = QVBoxLayout()
         self._legende_lay.setSpacing(2)
@@ -343,78 +526,57 @@ class PaletteCultures(QWidget):
         self._build_legende()
 
     def _filtrer(self, texte: str = ""):
-        # Vider
         while self._liste_lay.count() > 1:
             item = self._liste_lay.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-
         filtre = texte.lower().strip()
         for c in self._cultures:
             if filtre and filtre not in c["nom"].lower():
                 continue
-            btn = self._make_culture_btn(c)
-            self._liste_lay.insertWidget(
-                self._liste_lay.count() - 1, btn)
+            btn = self._make_btn(c)
+            self._liste_lay.insertWidget(self._liste_lay.count() - 1, btn)
 
-    def _make_culture_btn(self, c: dict) -> QPushButton:
+    def _make_btn(self, c: dict) -> QPushButton:
         couleur = (c.get("couleur_perso") or
                    c.get("famille_couleur") or "#95A5A6")
         nom = c["nom"]
         if c.get("famille_nom"):
             nom += f"\n{c['famille_nom']}"
-
         btn = QPushButton(nom)
         btn.setCheckable(True)
         btn.setChecked(c["id"] == self._culture_active_id)
         btn.setStyleSheet(f"""
             QPushButton {{
-                background: {couleur}22;
-                border: 2px solid {couleur};
-                border-radius: 4px;
-                color: #1f2937;
-                text-align: left;
-                padding: 4px 8px;
-                font-size: 11px;
+                background:{couleur}22; border:2px solid {couleur};
+                border-radius:4px; color:#1f2937;
+                text-align:left; padding:4px 8px; font-size:11px;
             }}
             QPushButton:checked {{
-                background: {couleur};
-                color: white;
-                font-weight: bold;
+                background:{couleur}; color:white; font-weight:bold;
             }}
-            QPushButton:hover {{
-                background: {couleur}55;
-            }}
+            QPushButton:hover {{ background:{couleur}55; }}
         """)
         btn.clicked.connect(lambda checked, cult=c: self._select(cult))
-
-        # Clic droit pour modifier/supprimer
         btn.setContextMenuPolicy(Qt.CustomContextMenu)
         btn.customContextMenuRequested.connect(
-            lambda pos, cult=c, b=btn: self._menu_culture(cult, b, pos))
-
+            lambda pos, cult=c, b=btn: self._menu(cult, b, pos))
         return btn
 
-    def _select(self, culture: dict):
-        self._culture_active_id = culture["id"]
-        self.on_select(culture)
+    def _select(self, c: dict):
+        self._culture_active_id = c["id"]
+        self.on_select(c)
         self._filtrer(self.inp_recherche.text())
 
-    def _menu_culture(self, culture: dict, btn: QPushButton, pos):
+    def _menu(self, c: dict, btn, pos):
         if not self.peut_ecrire:
             return
         menu = QMenu(self)
-        menu.addAction("✏ Modifier",
-            lambda: self._modifier_culture(culture))
+        menu.addAction("✏ Modifier", lambda: self._modifier(c))
         menu.exec(btn.mapToGlobal(pos))
 
-    def _creer_culture(self):
-        dlg = DialogCultureRef(parent=self)
-        if dlg.exec() == QDialog.Accepted:
-            self.recharger()
-
-    def _modifier_culture(self, culture: dict):
-        dlg = DialogCultureRef(culture_id=culture["id"], parent=self)
+    def _modifier(self, c: dict):
+        dlg = DialogCultureRef(culture_id=c["id"], parent=self)
         if dlg.exec() == QDialog.Accepted:
             self.recharger()
 
@@ -423,55 +585,45 @@ class PaletteCultures(QWidget):
             item = self._legende_lay.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-
-        familles = get_familles()
-        for fam in familles:
+        for fam in get_familles():
             w = QWidget()
             hl = QHBoxLayout(w)
             hl.setContentsMargins(0, 0, 0, 0)
             hl.setSpacing(4)
             carre = QLabel("■")
-            carre.setStyleSheet(f"color: {fam['couleur_hex']}; font-size: 14px;")
+            carre.setStyleSheet(
+                f"color:{fam['couleur_hex']};font-size:14px;")
             lbl = QLabel(fam["nom"])
-            lbl.setStyleSheet("font-size: 10px; color: #374151;")
-            hl.addWidget(carre)
-            hl.addWidget(lbl)
-            hl.addStretch()
+            lbl.setStyleSheet("font-size:10px;color:#374151;")
+            hl.addWidget(carre); hl.addWidget(lbl); hl.addStretch()
             self._legende_lay.addWidget(w)
 
 
-# ── Grille d'assolement (canvas QPainter) ─────
+# ── Grille canvas ─────────────────────────────
 class GrilleCanvas(QWidget):
-    """Canvas interactif : 52 colonnes semaines × N lignes planches.
-    Supporte le clic + drag pour assigner une culture."""
+    """Canvas QPainter 52 semaines. Reçoit les drops depuis ZoneSeries."""
+
+    MIME_TYPE = "application/x-assol-id"
 
     def __init__(self, annee: int, peut_ecrire: bool, peut_supprimer: bool,
-                 on_assigner, on_modifier, on_supprimer,
-                 get_culture_active, parent=None):
+                 on_modifier, on_supprimer, on_drop_serie, parent=None):
         super().__init__(parent)
-        self.annee             = annee
-        self.peut_ecrire       = peut_ecrire
-        self.peut_supprimer    = peut_supprimer
-        self.on_assigner       = on_assigner
-        self.on_modifier       = on_modifier
-        self.on_supprimer      = on_supprimer
-        self.get_culture_active = get_culture_active
+        self.annee          = annee
+        self.peut_ecrire    = peut_ecrire
+        self.peut_supprimer = peut_supprimer
+        self.on_modifier    = on_modifier
+        self.on_supprimer   = on_supprimer
+        self.on_drop_serie  = on_drop_serie
 
-        self._planches   = []
+        self._planches  = []
         self._assolement = []
-        self._lignes     = []   # [(type, data)]
-        self._blocs      = []   # [(QRect, assol_dict)]
-        self._collapsed  = set()
+        self._lignes    = []
+        self._blocs     = []
+        self._collapsed = set()
         self._hover_bloc = None
 
-        # Drag state
-        self._drag_planche_id = None
-        self._drag_x_start    = None
-        self._drag_x_current  = None
-        self._drag_y          = None
-
         self.setMouseTracking(True)
-        self.setAcceptDrops(False)
+        self.setAcceptDrops(True)
         self.setMinimumWidth(L_NOM + 52 * L_SEMAINE + 20)
 
     def charger(self, planches: list, assolement: list):
@@ -483,21 +635,18 @@ class GrilleCanvas(QWidget):
 
     def _build_lignes(self):
         self._lignes = []
-        parcelles_vues = {}
+        vus = {}
         for pl in self._planches:
             pid = pl.get("parcelle_id")
-            if pid not in parcelles_vues:
-                parcelles_vues[pid] = pl.get("parcelle_nom", f"Parcelle {pid}")
-                self._lignes.append(("parcelle", {
-                    "parcelle_id": pid,
-                    "nom": parcelles_vues[pid]
-                }))
+            if pid not in vus:
+                vus[pid] = pl.get("parcelle_nom", f"P{pid}")
+                self._lignes.append(("parcelle", {"parcelle_id": pid,
+                                                   "nom": vus[pid]}))
             if pid not in self._collapsed:
                 self._lignes.append(("planche", pl))
 
     def _update_size(self):
-        nb = len(self._lignes)
-        h = H_ENTETE + nb * H_PLANCHE + 20
+        h = H_ENTETE + len(self._lignes) * H_PLANCHE + 20
         w = L_NOM + 52 * L_SEMAINE + 20
         self.setMinimumSize(w, h)
 
@@ -510,239 +659,177 @@ class GrilleCanvas(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-
-        w_total = L_NOM + 52 * L_SEMAINE
-        h_total = H_ENTETE + len(self._lignes) * H_PLANCHE
-
-        # Fond
-        painter.fillRect(0, 0, w_total + 20, h_total + 20, Qt.white)
-
-        self._dessiner_entete(painter, w_total)
-        self._dessiner_lignes(painter, w_total)
-        self._dessiner_blocs(painter)
-        self._dessiner_drag(painter)
-        self._dessiner_aujourd_hui(painter, h_total)
-
+        w = L_NOM + 52 * L_SEMAINE
+        h = H_ENTETE + len(self._lignes) * H_PLANCHE
+        painter.fillRect(0, 0, w + 20, h + 20, Qt.white)
+        self._draw_header(painter, w)
+        self._draw_lignes(painter, w)
+        self._draw_blocs(painter)
+        self._draw_today(painter, h)
         painter.end()
 
-    def _dessiner_entete(self, painter: QPainter, w_total: int):
-        painter.fillRect(0, 0, w_total, H_ENTETE, QColor("#f3f4f6"))
-
-        # Colonne nom
-        font_bold = QFont(); font_bold.setPointSize(8); font_bold.setBold(True)
-        painter.setFont(font_bold)
+    def _draw_header(self, painter: QPainter, w: int):
+        painter.fillRect(0, 0, w, H_ENTETE, QColor("#f3f4f6"))
+        fB = QFont(); fB.setPointSize(8); fB.setBold(True)
+        painter.setFont(fB)
         painter.setPen(QColor("#374151"))
-        painter.drawText(QRect(0, 0, L_NOM, H_ENTETE),
-                         Qt.AlignCenter, "Planche")
+        painter.drawText(QRect(0, 0, L_NOM, H_ENTETE), Qt.AlignCenter, "Planche")
 
-        # Mois au-dessus des semaines
-        font_mois = QFont(); font_mois.setPointSize(7); font_mois.setBold(True)
-        painter.setFont(font_mois)
-        semaine = 1
+        # Mois
+        fM = QFont(); fM.setPointSize(7); fM.setBold(True)
+        painter.setFont(fM)
+        sem = 1
         for m in range(12):
-            # Semaines dans ce mois (approx)
-            nb_sem = 4 if m < 11 else 4
-            if m == 1:
-                nb_sem = 4
-            elif m in (0, 2, 4, 6, 7, 9, 11):
-                nb_sem = 5 if (semaine - 1 + nb_sem) <= 52 else 4
-            x1 = semaine_to_x(semaine)
-            x2 = semaine_to_x(min(semaine + nb_sem, 53))
-            rect_mois = QRect(x1, 0, x2 - x1, H_ENTETE // 2)
-            painter.fillRect(rect_mois, QColor("#e5e7eb"))
+            nb = 4
+            if m in (0, 2, 4, 6, 7, 9, 11) and sem + 4 <= 52:
+                nb = 5 if m != 11 else 4
+            x1 = semaine_to_x(sem)
+            x2 = semaine_to_x(min(sem + nb, 53))
+            r = QRect(x1, 0, x2 - x1, H_ENTETE // 2)
+            painter.fillRect(r, QColor("#e5e7eb"))
             painter.setPen(QColor("#374151"))
-            painter.drawText(rect_mois, Qt.AlignCenter, MOIS_COURTS[m])
+            painter.drawText(r, Qt.AlignCenter, MOIS_COURTS[m])
             painter.setPen(QPen(QColor("#d1d5db"), 1))
             painter.drawLine(x1, 0, x1, H_ENTETE)
-            semaine += nb_sem
+            sem += nb
 
-        # Numéros de semaine
-        font_sem = QFont(); font_sem.setPointSize(6)
-        painter.setFont(font_sem)
-        painter.setPen(QColor("#6b7280"))
+        # Numéros semaines
+        fS = QFont(); fS.setPointSize(6)
+        painter.setFont(fS)
+        painter.setPen(QColor("#9ca3af"))
         for s in range(1, 53):
             x = semaine_to_x(s)
-            rect_s = QRect(x, H_ENTETE // 2, L_SEMAINE, H_ENTETE // 2)
-            if s % 2 == 0:  # Afficher 1 semaine sur 2 pour lisibilité
-                painter.drawText(rect_s, Qt.AlignCenter, str(s))
+            if s % 2 == 0:
+                painter.drawText(
+                    QRect(x, H_ENTETE // 2, L_SEMAINE, H_ENTETE // 2),
+                    Qt.AlignCenter, str(s))
             painter.setPen(QPen(QColor("#e5e7eb"), 1))
             painter.drawLine(x, H_ENTETE // 2, x, H_ENTETE)
-            painter.setPen(QColor("#6b7280"))
+            painter.setPen(QColor("#9ca3af"))
 
-        # Bordure bas entête
         painter.setPen(QPen(QColor("#d1d5db"), 1))
-        painter.drawLine(0, H_ENTETE, w_total, H_ENTETE)
+        painter.drawLine(0, H_ENTETE, w, H_ENTETE)
 
-    def _dessiner_lignes(self, painter: QPainter, w_total: int):
-        font_parc  = QFont(); font_parc.setPointSize(9); font_parc.setBold(True)
-        font_planc = QFont(); font_planc.setPointSize(8)
-
+    def _draw_lignes(self, painter: QPainter, w: int):
+        fP = QFont(); fP.setPointSize(9); fP.setBold(True)
+        fN = QFont(); fN.setPointSize(8)
         for i, (typ, data) in enumerate(self._lignes):
             y = self._y_ligne(i)
-
             if typ == "parcelle":
-                painter.fillRect(QRect(0, y, w_total, H_PARCELLE),
-                                 QColor("#fef9c3"))
-                painter.setFont(font_parc)
+                painter.fillRect(QRect(0, y, w, H_PARCELLE), QColor("#fef9c3"))
+                painter.setFont(fP)
                 painter.setPen(QColor("#713F12"))
                 pid = data["parcelle_id"]
                 icone = "▼ " if pid not in self._collapsed else "▶ "
                 painter.drawText(
                     QRect(8, y, L_NOM - 8, H_PARCELLE),
                     Qt.AlignVCenter, icone + data["nom"])
-
-                # Fond hachuré sur la partie grille pour indiquer "groupe"
                 painter.fillRect(
-                    QRect(L_NOM, y, w_total - L_NOM, H_PARCELLE),
+                    QRect(L_NOM, y, w - L_NOM, H_PARCELLE),
                     QColor("#fefce8"))
-
             else:
-                couleur_fond = QColor("#f9fafb") if i % 2 == 0 else Qt.white
-                painter.fillRect(QRect(0, y, w_total, H_PLANCHE), couleur_fond)
-                painter.setFont(font_planc)
+                fond = QColor("#f9fafb") if i % 2 == 0 else Qt.white
+                painter.fillRect(QRect(0, y, w, H_PLANCHE), fond)
+                painter.setFont(fN)
                 painter.setPen(QColor("#374151"))
-
                 label = f"Planche {data['numero']}"
                 if data.get("longueur_m"):
                     label += f"  {data['longueur_m']}m"
-                if data.get("largeur_m"):
-                    label += f" × {data['largeur_m']}m"
                 if data.get("sous_abris"):
                     label += " 🏠"
-
                 painter.drawText(
                     QRect(16, y, L_NOM - 20, H_PLANCHE),
                     Qt.AlignVCenter, label)
 
-            # Grille verticale (semaines)
+            # Grille verticale
             painter.setPen(QPen(QColor("#f0f0f0"), 1))
             for s in range(1, 53):
                 x = semaine_to_x(s)
                 painter.drawLine(x, y, x, y + H_PLANCHE)
-
-            # Séparateur horizontal
             painter.setPen(QPen(QColor("#e5e7eb"), 1))
-            painter.drawLine(0, y + H_PLANCHE - 1,
-                             w_total, y + H_PLANCHE - 1)
+            painter.drawLine(0, y + H_PLANCHE - 1, w, y + H_PLANCHE - 1)
 
-        # Séparateur colonne nom
         painter.setPen(QPen(QColor("#d1d5db"), 2))
         painter.drawLine(L_NOM, H_ENTETE,
                          L_NOM, H_ENTETE + len(self._lignes) * H_PLANCHE)
 
-    def _dessiner_blocs(self, painter: QPainter):
+    def _draw_blocs(self, painter: QPainter):
         self._blocs = []
-        font_bloc = QFont(); font_bloc.setPointSize(8)
-        painter.setFont(font_bloc)
-
+        fB = QFont(); fB.setPointSize(8)
+        painter.setFont(fB)
         for i, (typ, data) in enumerate(self._lignes):
             if typ != "planche":
                 continue
             y = self._y_ligne(i)
-            planche_id = data["id"]
-
             for a in self._assolement:
-                if a["planche_id"] != planche_id:
+                if a["planche_id"] != data["id"]:
                     continue
-
                 s1 = date_to_semaine(
                     a.get("date_semis") or f"{self.annee}-01-01", self.annee)
                 s2 = date_to_semaine(
-                    a.get("date_derniere_recolte") or
-                    f"{self.annee}-12-31", self.annee)
-                if s2 <= s1:
-                    s2 = s1 + 2
-
+                    a.get("date_derniere_recolte") or f"{self.annee}-12-31",
+                    self.annee)
+                if s2 <= s1: s2 = s1 + 2
                 x1 = semaine_to_x(s1)
                 x2 = semaine_to_x(min(s2, 53))
-                if x2 <= x1:
-                    x2 = x1 + L_SEMAINE
-
+                if x2 <= x1: x2 = x1 + L_SEMAINE
                 couleur = QColor(get_couleur_culture(a))
                 hover = (self._hover_bloc and
                          self._hover_bloc.get("id") == a.get("id"))
-                if hover:
-                    couleur = couleur.lighter(115)
-
+                if hover: couleur = couleur.lighter(115)
                 rect = QRect(x1 + 1, y + 2, x2 - x1 - 2, H_PLANCHE - 4)
                 painter.fillRect(rect, couleur)
-
-                # Bordure
-                pen = QPen(couleur.darker(140), 1)
-                painter.setPen(pen)
+                painter.setPen(QPen(couleur.darker(140), 1))
                 painter.drawRoundedRect(rect, 3, 3)
-
-                # Texte
-                painter.setPen(QColor("#ffffff"))
-                txt = a.get("culture_nom", "")
-                if a.get("variete"):
-                    txt += f" · {a['variete']}"
-                metrics = painter.fontMetrics()
-                txt = metrics.elidedText(txt, Qt.ElideRight, rect.width() - 6)
+                painter.setPen(Qt.white)
+                nom = a.get("culture_nom", "")
+                if a.get("variete"): nom += f" · {a['variete']}"
+                nom = painter.fontMetrics().elidedText(
+                    nom, Qt.ElideRight, rect.width() - 6)
                 painter.drawText(rect.adjusted(3, 0, -3, 0),
-                                 Qt.AlignVCenter | Qt.AlignLeft, txt)
-
+                                 Qt.AlignVCenter | Qt.AlignLeft, nom)
                 self._blocs.append((rect, a))
 
-    def _dessiner_drag(self, painter: QPainter):
-        """Dessine le bloc fantôme pendant le drag."""
-        if (self._drag_planche_id is None or
-                self._drag_x_start is None or
-                self._drag_x_current is None):
-            return
-
-        culture = self.get_culture_active()
-        if not culture:
-            return
-
-        x1 = min(self._drag_x_start, self._drag_x_current)
-        x2 = max(self._drag_x_start, self._drag_x_current)
-        y  = self._drag_y
-
-        couleur = QColor(culture.get("couleur_perso") or
-                         culture.get("famille_couleur") or "#95A5A6")
-        couleur.setAlpha(160)
-
-        rect = QRect(x1 + 1, y + 2, x2 - x1 - 2, H_PLANCHE - 4)
-        painter.fillRect(rect, couleur)
-        pen = QPen(couleur.darker(130), 1)
-        painter.setPen(pen)
-        painter.drawRoundedRect(rect, 3, 3)
-
-        painter.setPen(Qt.white)
-        painter.drawText(rect.adjusted(3, 0, -3, 0),
-                         Qt.AlignVCenter | Qt.AlignLeft,
-                         culture.get("nom", ""))
-
-    def _dessiner_aujourd_hui(self, painter: QPainter, h_total: int):
+    def _draw_today(self, painter: QPainter, h: int):
         today = date.today()
-        if today.year != self.annee:
-            return
-        sem = date_to_semaine(today.strftime("%Y-%m-%d"), self.annee)
-        x = semaine_to_x(sem)
+        if today.year != self.annee: return
+        s = date_to_semaine(today.strftime("%Y-%m-%d"), self.annee)
+        x = semaine_to_x(s)
         painter.setPen(QPen(QColor("#DC2626"), 2, Qt.DashLine))
-        painter.drawLine(x, 0, x, h_total)
-        font_tiny = QFont(); font_tiny.setPointSize(7)
-        painter.setFont(font_tiny)
+        painter.drawLine(x, 0, x, h)
+        fT = QFont(); fT.setPointSize(7)
+        painter.setFont(fT)
         painter.setPen(QColor("#DC2626"))
         painter.drawText(x + 2, H_ENTETE - 4, "auj.")
 
     # ──────────────────────────────────────────
-    # Interactions souris
+    # Interactions
     # ──────────────────────────────────────────
     def _planche_at(self, pos: QPoint):
-        """Retourne (index_ligne, planche_dict) si la pos est sur une planche."""
         for i, (typ, data) in enumerate(self._lignes):
-            if typ != "planche":
-                continue
+            if typ != "planche": continue
             y = self._y_ligne(i)
             if y <= pos.y() < y + H_PLANCHE and pos.x() > L_NOM:
                 return i, data
         return None, None
 
+    def mouseMoveEvent(self, event):
+        pos = event.pos()
+        hover = None
+        for rect, a in self._blocs:
+            if rect.contains(pos):
+                hover = a; break
+        if hover != self._hover_bloc:
+            self._hover_bloc = hover
+            self.setCursor(
+                Qt.PointingHandCursor if hover else Qt.ArrowCursor)
+            self.update()
+            if hover:
+                QToolTip.showText(self.mapToGlobal(pos),
+                                  self._tooltip(hover))
+
     def mousePressEvent(self, event):
         pos = event.pos()
-
         # Clic sur titre parcelle → replier/déplier
         for i, (typ, data) in enumerate(self._lignes):
             y = self._y_ligne(i)
@@ -772,95 +859,56 @@ class GrilleCanvas(QWidget):
                         self.on_modifier(a["id"])
                     return
 
-        # Clic gauche sur une planche vide → début de drag
-        if event.button() == Qt.LeftButton and self.peut_ecrire:
-            _, planche = self._planche_at(pos)
-            if planche:
-                self._drag_planche_id = planche["id"]
-                self._drag_x_start    = pos.x()
-                self._drag_x_current  = pos.x()
-                idx, _ = self._planche_at(pos)
-                self._drag_y = self._y_ligne(idx)
-                self.update()
-
-    def mouseMoveEvent(self, event):
-        pos = event.pos()
-
-        # Mise à jour hover
-        hover = None
-        for rect, a in self._blocs:
-            if rect.contains(pos):
-                hover = a
-                break
-        if hover != self._hover_bloc:
-            self._hover_bloc = hover
-            self.setCursor(
-                Qt.PointingHandCursor if hover else Qt.CrossCursor
-                if (self._drag_planche_id or self.get_culture_active())
-                else Qt.ArrowCursor)
-            self.update()
-            if hover:
-                QToolTip.showText(
-                    self.mapToGlobal(pos), self._tooltip(hover))
-
-        # Mise à jour drag
-        if self._drag_planche_id is not None:
-            self._drag_x_current = max(L_NOM, pos.x())
-            self.update()
-
-    def mouseReleaseEvent(self, event):
-        if (event.button() == Qt.LeftButton and
-                self._drag_planche_id is not None):
-            x1 = min(self._drag_x_start, self._drag_x_current)
-            x2 = max(self._drag_x_start, self._drag_x_current)
-
-            # Convertir en semaines
-            s1 = (x1 - L_NOM) / L_SEMAINE + 1
-            s2 = (x2 - L_NOM) / L_SEMAINE + 1
-            s1 = max(1.0, min(52.0, s1))
-            s2 = max(s1 + 1, min(53.0, s2))
-
-            planche_id = self._drag_planche_id
-            self._drag_planche_id = None
-            self._drag_x_start    = None
-            self._drag_x_current  = None
-            self._drag_y          = None
-            self.update()
-
-            self.on_assigner(planche_id, s1, s2)
-
     def _menu_bloc(self, a: dict, pos: QPoint):
         menu = QMenu(self)
         if self.peut_ecrire:
-            menu.addAction("✏ Modifier",
-                lambda: self.on_modifier(a["id"]))
+            menu.addAction("✏ Modifier", lambda: self.on_modifier(a["id"]))
         if self.peut_supprimer:
-            menu.addAction("🗑 Supprimer",
-                lambda: self.on_supprimer(a["id"]))
+            menu.addAction("🗑 Supprimer", lambda: self.on_supprimer(a["id"]))
         if not menu.isEmpty():
             menu.exec(self.mapToGlobal(pos))
 
+    # ──────────────────────────────────────────
+    # Drop depuis ZoneSeries
+    # ──────────────────────────────────────────
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(ZoneSeries.MIME_TYPE):
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(ZoneSeries.MIME_TYPE):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        if not event.mimeData().hasFormat(ZoneSeries.MIME_TYPE):
+            return
+        try:
+            assol_id = int(
+                event.mimeData().data(ZoneSeries.MIME_TYPE).data())
+        except Exception:
+            return
+
+        pos = event.position().toPoint() if hasattr(
+            event, 'position') else event.pos()
+        _, planche = self._planche_at(pos)
+        if planche:
+            s = (pos.x() - L_NOM) / L_SEMAINE + 1
+            s = max(1.0, min(52.0, s))
+            self.on_drop_serie(assol_id, planche["id"], s)
+        event.acceptProposedAction()
+
     @staticmethod
     def _tooltip(a: dict) -> str:
-        lines = [f"<b>{a.get('culture_nom', '—')}</b>"]
-        if a.get("variete"):
-            lines.append(f"Variété : {a['variete']}")
-        if a.get("famille_nom"):
-            lines.append(f"Famille : {a['famille_nom']}")
-        if a.get("date_semis"):
-            lines.append(f"Semis : {a['date_semis']}")
-        if a.get("date_premiere_recolte"):
-            lines.append(f"1ère récolte : {a['date_premiere_recolte']}")
+        lines = [f"<b>{a.get('culture_nom','—')}</b>"]
+        if a.get("variete"): lines.append(f"Variété : {a['variete']}")
+        if a.get("famille_nom"): lines.append(f"Famille : {a['famille_nom']}")
+        if a.get("date_semis"): lines.append(f"Semis : {a['date_semis']}")
         if a.get("date_derniere_recolte"):
-            lines.append(f"Fin récolte : {a['date_derniere_recolte']}")
-        if a.get("rendement_ml"):
-            lines.append(f"Rend. : {a['rendement_ml']} kg/ml")
-        if a.get("prix_kg"):
-            lines.append(f"Prix : {a['prix_kg']} €/kg")
+            lines.append(f"Fin : {a['date_derniere_recolte']}")
         return "<br>".join(lines)
 
 
-# ── Dialog : Gérer les planches ───────────────
+# ── Dialog Gérer planches ─────────────────────
 class DialogGererPlanches(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -873,7 +921,6 @@ class DialogGererPlanches(QDialog):
     def _build_ui(self):
         lay = QVBoxLayout(self)
 
-        # Sélection parcelle
         top = QHBoxLayout()
         top.addWidget(QLabel("Parcelle :"))
         self.combo_parcelle = QComboBox()
@@ -881,76 +928,56 @@ class DialogGererPlanches(QDialog):
         top.addWidget(self.combo_parcelle, 1)
         lay.addLayout(top)
 
-        # Options génération
-        gen_group = QGroupBox("Génération automatique")
-        gen_lay = QFormLayout(gen_group)
-        gen_lay.setSpacing(8)
+        gen = QGroupBox("Génération automatique")
+        gl = QFormLayout(gen)
+        gl.setSpacing(8)
 
         nb_w = QWidget()
-        nb_lay = QHBoxLayout(nb_w)
-        nb_lay.setContentsMargins(0, 0, 0, 0)
-        self.inp_nb_planches = QSpinBox()
-        self.inp_nb_planches.setRange(1, 200)
-        self.inp_nb_planches.setValue(10)
-        self.inp_longueur = QDoubleSpinBox()
-        self.inp_longueur.setRange(0, 200)
-        self.inp_longueur.setDecimals(1)
-        self.inp_longueur.setSuffix(" m")
-        self.inp_longueur.setValue(30)
-        self.inp_largeur = QDoubleSpinBox()
-        self.inp_largeur.setRange(0, 10)
-        self.inp_largeur.setDecimals(2)
-        self.inp_largeur.setSuffix(" m")
-        self.inp_largeur.setValue(1.20)
-        nb_lay.addWidget(QLabel("N° :"))
-        nb_lay.addWidget(self.inp_nb_planches)
-        nb_lay.addWidget(QLabel("L :"))
-        nb_lay.addWidget(self.inp_longueur)
-        nb_lay.addWidget(QLabel("l :"))
-        nb_lay.addWidget(self.inp_largeur)
-        gen_lay.addRow("Planches :", nb_w)
+        nl = QHBoxLayout(nb_w)
+        nl.setContentsMargins(0, 0, 0, 0)
+        nl.setSpacing(6)
+        self.inp_nb  = QSpinBox(); self.inp_nb.setRange(1, 200); self.inp_nb.setValue(10)
+        self.inp_lon = QDoubleSpinBox()
+        self.inp_lon.setRange(0, 200); self.inp_lon.setDecimals(1)
+        self.inp_lon.setSuffix(" m"); self.inp_lon.setValue(30)
+        self.inp_lar = QDoubleSpinBox()
+        self.inp_lar.setRange(0, 10); self.inp_lar.setDecimals(2)
+        self.inp_lar.setSuffix(" m"); self.inp_lar.setValue(1.20)
+        nl.addWidget(QLabel("N° :")); nl.addWidget(self.inp_nb)
+        nl.addWidget(QLabel("L :")); nl.addWidget(self.inp_lon)
+        nl.addWidget(QLabel("l :")); nl.addWidget(self.inp_lar)
+        gl.addRow("Planches :", nb_w)
 
-        self.chk_sous_abris = QCheckBox("Sous abris (serre, tunnel...)")
-        gen_lay.addRow(self.chk_sous_abris)
-
-        self.inp_sous_parcelle = QLineEdit()
-        self.inp_sous_parcelle.setPlaceholderText(
-            "Ex: Serre A - Chapelle 1 (optionnel)")
-        gen_lay.addRow("Sous-zone :", self.inp_sous_parcelle)
-
+        self.chk_sous_abris = QCheckBox("Sous abris")
+        gl.addRow(self.chk_sous_abris)
+        self.inp_sous_parc = QLineEdit()
+        self.inp_sous_parc.setPlaceholderText("Ex: Serre A - Chapelle 1")
+        gl.addRow("Sous-zone :", self.inp_sous_parc)
         btn_gen = QPushButton("⚡ Générer")
-        btn_gen.setStyleSheet("""
-            QPushButton { background:#2563EB; color:white;
-                border-radius:4px; padding:4px 14px; }
-        """)
         btn_gen.clicked.connect(self._generer)
-        gen_lay.addRow(btn_gen)
-        lay.addWidget(gen_group)
+        gl.addRow(btn_gen)
+        lay.addWidget(gen)
 
-        # Tableau planches
         self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels([
-            "N°", "Longueur (m)", "Largeur (m)",
-            "Sous-abris", "Sous-zone", "Notes"])
+        self.table.setHorizontalHeaderLabels(
+            ["N°", "Longueur (m)", "Largeur (m)",
+             "Sous-abris", "Sous-zone", "Notes"])
         hh = self.table.horizontalHeader()
-        hh.setSectionResizeMode(4, QHeaderView.Stretch)
-        hh.setSectionResizeMode(5, QHeaderView.Stretch)
         for i in range(4):
             hh.setSectionResizeMode(i, QHeaderView.ResizeToContents)
+        hh.setSectionResizeMode(4, QHeaderView.Stretch)
+        hh.setSectionResizeMode(5, QHeaderView.Stretch)
         lay.addWidget(self.table, 1)
 
-        btns_tab = QHBoxLayout()
-        btn_add = QPushButton("+ Ajouter ligne")
-        btn_add.clicked.connect(self._ajouter_ligne)
+        btns_t = QHBoxLayout()
+        btn_add = QPushButton("+ Ligne")
+        btn_add.clicked.connect(self._add_ligne)
         btn_del = QPushButton("− Supprimer")
-        btn_del.clicked.connect(self._supprimer_ligne)
-        btns_tab.addWidget(btn_add)
-        btns_tab.addWidget(btn_del)
-        btns_tab.addStretch()
-        lay.addLayout(btns_tab)
+        btn_del.clicked.connect(self._del_ligne)
+        btns_t.addWidget(btn_add); btns_t.addWidget(btn_del); btns_t.addStretch()
+        lay.addLayout(btns_t)
 
-        btns = QDialogButtonBox(
-            QDialogButtonBox.Save | QDialogButtonBox.Close)
+        btns = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Close)
         btns.button(QDialogButtonBox.Save).setText("💾 Enregistrer")
         btns.accepted.connect(self._sauver)
         btns.rejected.connect(self.accept)
@@ -960,64 +987,56 @@ class DialogGererPlanches(QDialog):
         try:
             conn = get_connection()
             cur  = conn.cursor()
-            cur.execute(
-                "SELECT id, nom FROM parcelles WHERE actif=1 ORDER BY nom")
+            cur.execute("SELECT id, nom FROM parcelles WHERE actif=1 ORDER BY nom")
             self.combo_parcelle.clear()
-            for row in cur.fetchall():
-                self.combo_parcelle.addItem(row[1], row[0])
+            for r in cur.fetchall():
+                self.combo_parcelle.addItem(r[1], r[0])
             cur.close()
         except Exception:
             traceback.print_exc()
 
     def _charger_planches(self):
         pid = self.combo_parcelle.currentData()
-        if not pid:
-            return
+        if not pid: return
         planches = get_planches_parcelle(pid)
         self.table.setRowCount(0)
         for pl in planches:
-            self._ajouter_ligne_data(pl)
+            self._add_row(pl)
 
-    def _ajouter_ligne_data(self, pl: dict = None):
+    def _add_row(self, pl: dict = None):
         r = self.table.rowCount()
         self.table.insertRow(r)
-
         num = pl["numero"] if pl else r + 1
         self.table.setItem(r, 0, QTableWidgetItem(str(num)))
-        self.table.setItem(r, 1,
-            QTableWidgetItem(str(pl.get("longueur_m") or "") if pl else ""))
-        self.table.setItem(r, 2,
-            QTableWidgetItem(str(pl.get("largeur_m") or "") if pl else ""))
-
+        self.table.setItem(r, 1, QTableWidgetItem(
+            str(pl.get("longueur_m") or "") if pl else ""))
+        self.table.setItem(r, 2, QTableWidgetItem(
+            str(pl.get("largeur_m") or "") if pl else ""))
         chk = QCheckBox()
         chk.setChecked(bool(pl.get("sous_abris")) if pl else False)
         self.table.setCellWidget(r, 3, chk)
-
-        self.table.setItem(r, 4,
-            QTableWidgetItem(pl.get("sous_parcelle") or "" if pl else ""))
-        self.table.setItem(r, 5,
-            QTableWidgetItem(pl.get("notes") or "" if pl else ""))
-
+        self.table.setItem(r, 4, QTableWidgetItem(
+            pl.get("sous_parcelle") or "" if pl else ""))
+        self.table.setItem(r, 5, QTableWidgetItem(
+            pl.get("notes") or "" if pl else ""))
         if pl:
             self.table.item(r, 0).setData(Qt.UserRole, pl["id"])
 
-    def _ajouter_ligne(self):
-        self._ajouter_ligne_data()
+    def _add_ligne(self):
+        self._add_row()
 
-    def _supprimer_ligne(self):
-        rows = sorted(
-            set(i.row() for i in self.table.selectedItems()),
-            reverse=True)
-        for r in rows:
+    def _del_ligne(self):
+        for r in sorted(
+                set(i.row() for i in self.table.selectedItems()),
+                reverse=True):
             self.table.removeRow(r)
 
     def _generer(self):
-        nb  = self.inp_nb_planches.value()
-        lon = self.inp_longueur.value()
-        lar = self.inp_largeur.value()
-        sous_abris    = self.chk_sous_abris.isChecked()
-        sous_parcelle = self.inp_sous_parcelle.text().strip() or None
-
+        nb  = self.inp_nb.value()
+        lon = self.inp_lon.value()
+        lar = self.inp_lar.value()
+        sa  = self.chk_sous_abris.isChecked()
+        sp  = self.inp_sous_parc.text().strip() or None
         self.table.setRowCount(0)
         for i in range(nb):
             r = self.table.rowCount()
@@ -1025,76 +1044,55 @@ class DialogGererPlanches(QDialog):
             self.table.setItem(r, 0, QTableWidgetItem(str(i + 1)))
             self.table.setItem(r, 1, QTableWidgetItem(str(lon)))
             self.table.setItem(r, 2, QTableWidgetItem(str(lar)))
-            chk = QCheckBox()
-            chk.setChecked(sous_abris)
+            chk = QCheckBox(); chk.setChecked(sa)
             self.table.setCellWidget(r, 3, chk)
-            self.table.setItem(r, 4,
-                QTableWidgetItem(sous_parcelle or ""))
+            self.table.setItem(r, 4, QTableWidgetItem(sp or ""))
             self.table.setItem(r, 5, QTableWidgetItem(""))
 
     def _sauver(self):
         pid = self.combo_parcelle.currentData()
-        if not pid:
-            return
+        if not pid: return
         try:
             conn = get_connection()
             cur  = conn.cursor()
             cur.execute(
                 "SELECT id, numero FROM planches WHERE parcelle_id=?", (pid,))
-            existants = {row[1]: row[0] for row in cur.fetchall()}
-            numeros_gardes = set()
-
+            existants = {r[1]: r[0] for r in cur.fetchall()}
+            gardes = set()
             for r in range(self.table.rowCount()):
                 try:
                     num = int(self.table.item(r, 0).text())
                 except Exception:
                     continue
-
-                lon_txt = (self.table.item(r, 1).text()
-                           if self.table.item(r, 1) else "")
-                lar_txt = (self.table.item(r, 2).text()
-                           if self.table.item(r, 2) else "")
+                lon = float(self.table.item(r, 1).text() or 0) or None
+                lar = float(self.table.item(r, 2).text() or 0) or None
                 chk = self.table.cellWidget(r, 3)
-                sous_abris = 1 if (chk and chk.isChecked()) else 0
-                sous_parcelle = (self.table.item(r, 4).text()
-                                 if self.table.item(r, 4) else "") or None
-                notes = (self.table.item(r, 5).text()
-                         if self.table.item(r, 5) else "") or None
-                lon = float(lon_txt) if lon_txt else None
-                lar = float(lar_txt) if lar_txt else None
-                numeros_gardes.add(num)
-
+                sa  = 1 if (chk and chk.isChecked()) else 0
+                sp  = (self.table.item(r, 4).text() or "") or None
+                nts = (self.table.item(r, 5).text() or "") or None
+                gardes.add(num)
                 if num in existants:
                     cur.execute("""
-                        UPDATE planches
-                        SET longueur_m=?, largeur_m=?, sous_abris=?,
-                            sous_parcelle=?, notes=?
-                        WHERE id=?
-                    """, (lon, lar, sous_abris, sous_parcelle,
-                          notes, existants[num]))
+                        UPDATE planches SET longueur_m=?,largeur_m=?,
+                        sous_abris=?,sous_parcelle=?,notes=? WHERE id=?
+                    """, (lon, lar, sa, sp, nts, existants[num]))
                 else:
                     cur.execute("""
                         INSERT INTO planches
-                            (parcelle_id, numero, longueur_m, largeur_m,
-                             sous_abris, sous_parcelle, notes)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (pid, num, lon, lar, sous_abris,
-                          sous_parcelle, notes))
-
-            # Supprimer planches retirées (si pas d'assolement lié)
-            for num, planche_id in existants.items():
-                if num not in numeros_gardes:
+                        (parcelle_id,numero,longueur_m,largeur_m,
+                         sous_abris,sous_parcelle,notes)
+                        VALUES (?,?,?,?,?,?,?)
+                    """, (pid, num, lon, lar, sa, sp, nts))
+            for num, plid in existants.items():
+                if num not in gardes:
                     cur.execute(
                         "SELECT COUNT(*) FROM assolement WHERE planche_id=?",
-                        (planche_id,))
+                        (plid,))
                     if cur.fetchone()[0] == 0:
-                        cur.execute(
-                            "DELETE FROM planches WHERE id=?", (planche_id,))
+                        cur.execute("DELETE FROM planches WHERE id=?", (plid,))
                     else:
-                        QMessageBox.warning(self, "Planche non supprimée",
-                            f"La planche {num} a des cultures — "
-                            "supprimez-les d'abord.")
-
+                        QMessageBox.warning(self, "Impossible",
+                            f"Planche {num} a des cultures — supprimez-les d'abord.")
             conn.commit()
             cur.close()
             self._charger_planches()
@@ -1102,190 +1100,307 @@ class DialogGererPlanches(QDialog):
             traceback.print_exc()
 
 
-# ── Dialog : Ajouter/modifier une culture ─────
+# ── Dialog culture assolement (complet) ──────
 class DialogCultureAssolement(QDialog):
     def __init__(self, annee: int,
-                 planche_id_preselect: int = None,
                  culture_ref_id_preselect: int = None,
                  date_semis_preselect: date = None,
                  date_fin_preselect: date = None,
                  assolement_id: int = None,
                  parent=None):
         super().__init__(parent)
-        self.annee                  = annee
-        self.planche_id_preselect   = planche_id_preselect
+        self.annee                    = annee
         self.culture_ref_id_preselect = culture_ref_id_preselect
-        self.date_semis_preselect   = date_semis_preselect
-        self.date_fin_preselect     = date_fin_preselect
-        self.assolement_id          = assolement_id
+        self.date_semis_preselect     = date_semis_preselect
+        self.date_fin_preselect       = date_fin_preselect
+        self.assolement_id            = assolement_id
         self.setWindowTitle(
-            "Modifier la culture" if assolement_id else "Ajouter une culture")
-        self.setMinimumWidth(480)
+            "Modifier la culture" if assolement_id else "Nouvelle culture")
+        self.setMinimumWidth(560)
+        self.setMinimumHeight(680)
         self._build_ui()
         self._charger_combos()
         if assolement_id:
             self._charger_existant(assolement_id)
-        else:
-            self._preselectionner()
+        elif culture_ref_id_preselect:
+            for i in range(self.combo_culture.count()):
+                if self.combo_culture.itemData(i) == culture_ref_id_preselect:
+                    self.combo_culture.setCurrentIndex(i)
+                    break
+        if date_semis_preselect:
+            d = date_semis_preselect
+            self.inp_date_debut.setDate(QDate(d.year, d.month, d.day))
+        if date_fin_preselect:
+            d = date_fin_preselect
+            self.inp_dern_recolte.setDate(QDate(d.year, d.month, d.day))
+        self._on_mode_changed()
+        self._calc_densite()
+        self._calc_semences()
+        self._calc_ca()
 
     def _build_ui(self):
-        lay = QVBoxLayout(self)
-        form = QFormLayout()
-        form.setSpacing(10)
-        form.setContentsMargins(12, 12, 12, 12)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        inner = QWidget()
+        lay = QVBoxLayout(inner)
+        lay.setContentsMargins(16, 16, 16, 16)
+        lay.setSpacing(10)
 
-        # Planche
-        self.combo_planche = QComboBox()
-        form.addRow("Planche *", self.combo_planche)
-
-        # Culture
-        cult_w = QWidget()
-        cl = QHBoxLayout(cult_w)
-        cl.setContentsMargins(0, 0, 0, 0)
+        # 1. Culture
+        g1 = QGroupBox("Culture")
+        f1 = QFormLayout(g1); f1.setSpacing(8)
+        cw = QWidget(); cl = QHBoxLayout(cw); cl.setContentsMargins(0,0,0,0)
         self.combo_culture = QComboBox()
-        self.combo_culture.setMinimumWidth(200)
-        btn_new = QPushButton("+")
-        btn_new.setFixedWidth(28)
-        btn_new.setToolTip("Créer une culture dans le référentiel")
-        btn_new.clicked.connect(self._creer_culture)
-        cl.addWidget(self.combo_culture, 1)
-        cl.addWidget(btn_new)
-        form.addRow("Culture *", cult_w)
-
-        # Variété
+        btn_nc = QPushButton("+"); btn_nc.setFixedWidth(28)
+        btn_nc.setToolTip("Créer dans le référentiel")
+        btn_nc.clicked.connect(self._creer_culture)
+        cl.addWidget(self.combo_culture, 1); cl.addWidget(btn_nc)
+        f1.addRow("Culture *", cw)
         self.inp_variete = QLineEdit()
         self.inp_variete.setPlaceholderText("Optionnel")
-        form.addRow("Variété", self.inp_variete)
+        f1.addRow("Variété", self.inp_variete)
+        self.chk_sous_abris = QCheckBox("Sous abris")
+        f1.addRow("", self.chk_sous_abris)
+        lay.addWidget(g1)
 
-        # Mode de plantation
-        self.combo_mode = QComboBox()
-        self.combo_mode.addItem("Semis direct", "semis_direct")
-        self.combo_mode.addItem("Plant fait maison", "plant_fait")
-        self.combo_mode.addItem("Plant acheté", "plant_achete")
-        self.combo_mode.currentIndexChanged.connect(self._on_mode_changed)
-        form.addRow("Mode plantation", self.combo_mode)
+        # 2. Planche
+        g2 = QGroupBox("Planche")
+        f2 = QFormLayout(g2); f2.setSpacing(8)
+        self.inp_longueur = QDoubleSpinBox()
+        self.inp_longueur.setRange(0.1, 500); self.inp_longueur.setDecimals(1)
+        self.inp_longueur.setSuffix(" m")
+        self.inp_longueur.valueChanged.connect(self._calc_densite)
+        self.inp_longueur.valueChanged.connect(self._calc_semences)
+        self.inp_longueur.valueChanged.connect(self._calc_ca)
+        f2.addRow("Longueur", self.inp_longueur)
+        nb_pl_w = QWidget(); nb_pl_l = QHBoxLayout(nb_pl_w)
+        nb_pl_l.setContentsMargins(0,0,0,0); nb_pl_l.setSpacing(6)
+        self.inp_nb_planches = QSpinBox()
+        self.inp_nb_planches.setRange(1, 100); self.inp_nb_planches.setValue(1)
+        nb_pl_l.addWidget(QLabel("Nb planches :")); nb_pl_l.addWidget(self.inp_nb_planches)
+        nb_pl_l.addStretch()
+        f2.addRow("", nb_pl_w)
+        erd_w = QWidget(); erd_l = QHBoxLayout(erd_w)
+        erd_l.setContentsMargins(0,0,0,0); erd_l.setSpacing(6)
+        self.inp_espacement = QDoubleSpinBox()
+        self.inp_espacement.setRange(1, 200); self.inp_espacement.setDecimals(0)
+        self.inp_espacement.setSuffix(" cm"); self.inp_espacement.setValue(30)
+        self.inp_espacement.valueChanged.connect(self._calc_densite)
+        self.inp_espacement.valueChanged.connect(self._calc_semences)
+        self.inp_nb_rangs = QSpinBox()
+        self.inp_nb_rangs.setRange(1, 20); self.inp_nb_rangs.setValue(1)
+        self.inp_nb_rangs.valueChanged.connect(self._calc_densite)
+        self.inp_nb_rangs.valueChanged.connect(self._calc_semences)
+        self.lbl_densite = QLabel("0 plant/m")
+        self.lbl_densite.setStyleSheet("color:#2563EB;font-weight:bold;")
+        erd_l.addWidget(QLabel("Espacement :")); erd_l.addWidget(self.inp_espacement)
+        erd_l.addWidget(QLabel("Rangs :")); erd_l.addWidget(self.inp_nb_rangs)
+        erd_l.addWidget(QLabel("Densité :")); erd_l.addWidget(self.lbl_densite)
+        f2.addRow("Espacement / Rangs", erd_w)
+        lay.addWidget(g2)
 
-        # Dates — label dynamique selon mode
+        # 3. Séries
+        g3 = QGroupBox("Séries")
+        f3 = QFormLayout(g3); f3.setSpacing(8)
+        ser_w = QWidget(); sl = QHBoxLayout(ser_w)
+        sl.setContentsMargins(0,0,0,0); sl.setSpacing(6)
+        self.inp_nb_series = QSpinBox()
+        self.inp_nb_series.setRange(1, 52); self.inp_nb_series.setValue(1)
+        self.inp_nb_series.valueChanged.connect(self._on_series_changed)
+        self.inp_intervalle = QSpinBox()
+        self.inp_intervalle.setRange(1, 52); self.inp_intervalle.setValue(2)
+        self.inp_intervalle.setSuffix(" sem."); self.inp_intervalle.setEnabled(False)
+        sl.addWidget(QLabel("Nombre :")); sl.addWidget(self.inp_nb_series)
+        sl.addWidget(QLabel("Intervalle :")); sl.addWidget(self.inp_intervalle)
+        f3.addRow("Séries", ser_w)
+        self.lbl_recap = QLabel("")
+        self.lbl_recap.setStyleSheet("color:#16a34a;font-size:11px;")
+        f3.addRow("", self.lbl_recap)
+        lay.addWidget(g3)
+
+        # 4. Mode & Dates
+        g4 = QGroupBox("Plantation & Dates")
+        f4 = QFormLayout(g4); f4.setSpacing(8)
+        mw = QWidget(); ml = QHBoxLayout(mw)
+        ml.setContentsMargins(0,0,0,0); ml.setSpacing(4)
+        self.radio_semis  = QRadioButton("Semis direct")
+        self.radio_fait   = QRadioButton("Plant fait")
+        self.radio_achete = QRadioButton("Plant acheté")
+        self.radio_semis.setChecked(True)
+        for r in (self.radio_semis, self.radio_fait, self.radio_achete):
+            ml.addWidget(r); r.toggled.connect(self._on_mode_changed)
+        f4.addRow("Mode", mw)
         self.lbl_date_debut = QLabel("Date de semis")
         self.inp_date_debut = QDateEdit(QDate(self.annee, 3, 1))
         self.inp_date_debut.setDisplayFormat("dd/MM/yyyy")
         self.inp_date_debut.setCalendarPopup(True)
-        form.addRow(self.lbl_date_debut, self.inp_date_debut)
-
+        f4.addRow(self.lbl_date_debut, self.inp_date_debut)
         self.inp_prem_recolte = QDateEdit(QDate(self.annee, 6, 1))
         self.inp_prem_recolte.setDisplayFormat("dd/MM/yyyy")
         self.inp_prem_recolte.setCalendarPopup(True)
-        form.addRow("1ère récolte", self.inp_prem_recolte)
-
+        f4.addRow("1ère récolte", self.inp_prem_recolte)
         self.inp_dern_recolte = QDateEdit(QDate(self.annee, 9, 30))
         self.inp_dern_recolte.setDisplayFormat("dd/MM/yyyy")
         self.inp_dern_recolte.setCalendarPopup(True)
-        form.addRow("Dernière récolte", self.inp_dern_recolte)
+        f4.addRow("Dernière récolte", self.inp_dern_recolte)
+        lay.addWidget(g4)
 
-        # Séries
-        ser_w = QWidget()
-        sl = QHBoxLayout(ser_w)
-        sl.setContentsMargins(0, 0, 0, 0)
-        self.inp_nb_series = QSpinBox()
-        self.inp_nb_series.setRange(1, 52)
-        self.inp_nb_series.setValue(1)
-        self.inp_intervalle = QSpinBox()
-        self.inp_intervalle.setRange(0, 52)
-        self.inp_intervalle.setSuffix(" sem.")
-        self.inp_intervalle.setSpecialValueText("Série unique")
-        sl.addWidget(QLabel("Nb :"))
-        sl.addWidget(self.inp_nb_series)
-        sl.addWidget(QLabel("Intervalle :"))
-        sl.addWidget(self.inp_intervalle)
-        form.addRow("Séries", ser_w)
+        # 5. Semences
+        self.g5 = QGroupBox("Semences")
+        f5 = QFormLayout(self.g5); f5.setSpacing(8)
+        sw = QWidget(); sl2 = QHBoxLayout(sw)
+        sl2.setContentsMargins(0,0,0,0); sl2.setSpacing(6)
+        self.inp_graines_trou = QSpinBox()
+        self.inp_graines_trou.setRange(1, 10); self.inp_graines_trou.setValue(1)
+        self.inp_graines_trou.valueChanged.connect(self._calc_semences)
+        self.inp_pct_sup = QDoubleSpinBox()
+        self.inp_pct_sup.setRange(0, 100); self.inp_pct_sup.setDecimals(0)
+        self.inp_pct_sup.setSuffix(" %"); self.inp_pct_sup.setValue(10)
+        self.inp_pct_sup.valueChanged.connect(self._calc_semences)
+        self.inp_graines_gramme = QDoubleSpinBox()
+        self.inp_graines_gramme.setRange(0, 100000); self.inp_graines_gramme.setDecimals(0)
+        self.inp_graines_gramme.setSuffix(" /g")
+        self.inp_graines_gramme.valueChanged.connect(self._calc_semences)
+        sl2.addWidget(QLabel("Par trou :")); sl2.addWidget(self.inp_graines_trou)
+        sl2.addWidget(QLabel("% sup. :")); sl2.addWidget(self.inp_pct_sup)
+        sl2.addWidget(QLabel("Par gramme :")); sl2.addWidget(self.inp_graines_gramme)
+        f5.addRow("Graines", sw)
+        self.lbl_nb_graines = QLabel("Nombre : 0")
+        self.lbl_nb_graines.setStyleSheet("color:#6b7280;font-size:11px;")
+        f5.addRow("", self.lbl_nb_graines)
+        self.lbl_poids = QLabel("Quantité : — g")
+        self.lbl_poids.setStyleSheet("color:#6b7280;font-size:11px;")
+        f5.addRow("", self.lbl_poids)
+        lay.addWidget(self.g5)
 
-        # Rendement & prix
-        rend_w = QWidget()
-        rl = QHBoxLayout(rend_w)
-        rl.setContentsMargins(0, 0, 0, 0)
+        # 6. Rendement
+        g6 = QGroupBox("Rendements et produits")
+        f6 = QFormLayout(g6); f6.setSpacing(8)
+        uw = QWidget(); ul = QHBoxLayout(uw)
+        ul.setContentsMargins(0,0,0,0)
+        self.combo_unite = QComboBox()
+        self.combo_unite.addItems(["kg", "pce", "bte"])
+        self.combo_unite.currentTextChanged.connect(self._on_unite_changed)
+        btn_nu = QPushButton("+ Unité"); btn_nu.setFixedWidth(70)
+        btn_nu.clicked.connect(self._ajouter_unite)
+        ul.addWidget(self.combo_unite); ul.addWidget(btn_nu); ul.addStretch()
+        f6.addRow("Unité", uw)
+        rw = QWidget(); rl = QHBoxLayout(rw); rl.setContentsMargins(0,0,0,0)
         self.inp_rendement = QDoubleSpinBox()
-        self.inp_rendement.setRange(0, 99999)
-        self.inp_rendement.setDecimals(2)
-        self.inp_rendement.setSuffix(" kg/ml")
+        self.inp_rendement.setRange(0, 99999); self.inp_rendement.setDecimals(2)
+        self.inp_rendement.valueChanged.connect(self._calc_ca)
+        self.lbl_rend_u = QLabel("/ m de planche")
+        rl.addWidget(self.inp_rendement); rl.addWidget(self.lbl_rend_u); rl.addStretch()
+        f6.addRow("Rendement", rw)
+        pw = QWidget(); pl = QHBoxLayout(pw); pl.setContentsMargins(0,0,0,0)
         self.inp_prix = QDoubleSpinBox()
-        self.inp_prix.setRange(0, 9999)
-        self.inp_prix.setDecimals(2)
-        self.inp_prix.setSuffix(" €/kg")
-        rl.addWidget(self.inp_rendement)
-        rl.addWidget(QLabel("  Prix :"))
-        rl.addWidget(self.inp_prix)
-        form.addRow("Rendement", rend_w)
+        self.inp_prix.setRange(0, 9999); self.inp_prix.setDecimals(2)
+        self.inp_prix.setSuffix(" €")
+        self.inp_prix.valueChanged.connect(self._calc_ca)
+        self.lbl_prix_u = QLabel("/ kg")
+        pl.addWidget(self.inp_prix); pl.addWidget(self.lbl_prix_u); pl.addStretch()
+        f6.addRow("Prix", pw)
+        self.lbl_ca = QLabel("CA estimé : —")
+        self.lbl_ca.setStyleSheet("color:#16a34a;font-weight:bold;font-size:13px;")
+        f6.addRow("", self.lbl_ca)
+        lay.addWidget(g6)
 
-        self.inp_notes = QTextEdit()
-        self.inp_notes.setMaximumHeight(55)
-        form.addRow("Notes", self.inp_notes)
+        # Notes
+        g7 = QGroupBox("Notes"); f7 = QFormLayout(g7)
+        self.inp_notes = QTextEdit(); self.inp_notes.setMaximumHeight(55)
+        f7.addRow(self.inp_notes)
+        lay.addWidget(g7)
 
         self.lbl_err = QLabel("")
-        self.lbl_err.setStyleSheet("color: red;")
-        form.addRow(self.lbl_err)
+        self.lbl_err.setStyleSheet("color:red;")
+        lay.addWidget(self.lbl_err)
 
-        lay.addLayout(form)
+        scroll.setWidget(inner)
+        root.addWidget(scroll, 1)
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         btns.accepted.connect(self._valider)
         btns.rejected.connect(self.reject)
-        lay.addWidget(btns)
+        root.addWidget(btns)
 
+    # ── Callbacks ──
     def _on_mode_changed(self):
-        mode = self.combo_mode.currentData()
-        if mode == "semis_direct":
-            self.lbl_date_debut.setText("Date de semis")
+        achete = self.radio_achete.isChecked()
+        self.g5.setVisible(not achete)
+        self.lbl_date_debut.setText(
+            "Date de semis" if self.radio_semis.isChecked()
+            else "Date de mise en place")
+
+    def _on_series_changed(self, n: int):
+        self.inp_intervalle.setEnabled(n > 1)
+        nb_pl = self.inp_nb_planches.value()
+        if n == 1:
+            self.lbl_recap.setText(
+                f"{nb_pl} planche(s), série unique")
         else:
-            self.lbl_date_debut.setText("Date de mise en place")
+            self.lbl_recap.setText(
+                f"{n} séries × {nb_pl} planche(s), "
+                f"toutes les {self.inp_intervalle.value()} semaines")
+
+    def _on_unite_changed(self, u: str):
+        self.lbl_prix_u.setText(f"/ {u}"); self._calc_ca()
+
+    def _calc_densite(self):
+        esp = self.inp_espacement.value() / 100.0
+        if esp > 0:
+            self.lbl_densite.setText(
+                f"{self.inp_nb_rangs.value() / esp:.1f} plant/m")
+        else:
+            self.lbl_densite.setText("—")
+
+    def _calc_semences(self):
+        esp = self.inp_espacement.value() / 100.0
+        lon = self.inp_longueur.value()
+        if esp <= 0 or lon <= 0:
+            self.lbl_nb_graines.setText("Nombre : 0")
+            self.lbl_poids.setText("Quantité : — g")
+            return
+        nb_empl = int(lon / esp) * self.inp_nb_rangs.value() \
+                  * self.inp_nb_planches.value() * self.inp_nb_series.value()
+        nb = int(nb_empl * self.inp_graines_trou.value() *
+                 (1 + self.inp_pct_sup.value() / 100.0))
+        self.lbl_nb_graines.setText(f"Nombre : {nb}")
+        gg = self.inp_graines_gramme.value()
+        self.lbl_poids.setText(f"Quantité : {nb/gg:.1f} g" if gg > 0 else "Quantité : — g")
+
+    def _calc_ca(self):
+        ca = (self.inp_rendement.value() * self.inp_longueur.value() *
+              self.inp_prix.value() * self.inp_nb_planches.value() *
+              self.inp_nb_series.value())
+        self.lbl_ca.setText(f"CA estimé : {ca:.2f} €" if ca > 0 else "CA estimé : —")
+
+    def _ajouter_unite(self):
+        u, ok = QInputDialog.getText(self, "Nouvelle unité", "Nom de l'unité :")
+        if ok and u.strip():
+            self.combo_unite.addItem(u.strip())
+            self.combo_unite.setCurrentText(u.strip())
+
+    def _creer_culture(self):
+        dlg = DialogCultureRef(parent=self)
+        if dlg.exec() == QDialog.Accepted:
+            self._charger_combos()
 
     def _charger_combos(self):
-        try:
-            conn = get_connection()
-            cur  = conn.cursor()
-            cur.execute("""
-                SELECT pl.id, pl.numero, pl.longueur_m,
-                       pl.sous_parcelle, p.nom
-                FROM planches pl
-                JOIN parcelles p ON p.id = pl.parcelle_id
-                WHERE p.actif = 1
-                ORDER BY p.nom, pl.numero
-            """)
-            self.combo_planche.clear()
-            for row in cur.fetchall():
-                label = f"{row[4]} — Planche {row[1]}"
-                if row[3]:
-                    label = f"{row[4]} — {row[3]} — Planche {row[1]}"
-                if row[2]:
-                    label += f" ({row[2]}m)"
-                self.combo_planche.addItem(label, row[0])
-            cur.close()
-        except Exception:
-            traceback.print_exc()
-
         cultures = get_cultures_ref()
+        self.combo_culture.blockSignals(True)
         self.combo_culture.clear()
+        self.combo_culture.setEditable(True)
+        self.combo_culture.setInsertPolicy(QComboBox.NoInsert)
+        self.combo_culture.addItem("+ Nouvelle espèce...", -1)
         for c in cultures:
             label = c["nom"]
             if c.get("famille_nom"):
                 label += f"  ({c['famille_nom']})"
             self.combo_culture.addItem(label, c["id"])
-
-    def _preselectionner(self):
-        if self.planche_id_preselect:
-            for i in range(self.combo_planche.count()):
-                if self.combo_planche.itemData(i) == self.planche_id_preselect:
-                    self.combo_planche.setCurrentIndex(i)
-                    break
-        if self.culture_ref_id_preselect:
-            for i in range(self.combo_culture.count()):
-                if self.combo_culture.itemData(i) == self.culture_ref_id_preselect:
-                    self.combo_culture.setCurrentIndex(i)
-                    break
-        if self.date_semis_preselect:
-            d = self.date_semis_preselect
-            self.inp_date_debut.setDate(QDate(d.year, d.month, d.day))
-        if self.date_fin_preselect:
-            d = self.date_fin_preselect
-            self.inp_dern_recolte.setDate(QDate(d.year, d.month, d.day))
+        self.combo_culture.blockSignals(False)
+        self.combo_culture.currentIndexChanged.connect(self._on_culture_changed)
 
     def _charger_existant(self, aid: int):
         try:
@@ -1294,92 +1409,126 @@ class DialogCultureAssolement(QDialog):
             cur.execute("SELECT * FROM assolement WHERE id=?", (aid,))
             a = dict(cur.fetchone())
             cur.close()
-
-            for i in range(self.combo_planche.count()):
-                if self.combo_planche.itemData(i) == a["planche_id"]:
-                    self.combo_planche.setCurrentIndex(i); break
             for i in range(self.combo_culture.count()):
                 if self.combo_culture.itemData(i) == a["culture_ref_id"]:
                     self.combo_culture.setCurrentIndex(i); break
-
             self.inp_variete.setText(a.get("variete") or "")
-            idx = self.combo_mode.findData(a.get("mode_plantation","semis_direct"))
-            self.combo_mode.setCurrentIndex(max(0, idx))
-
-            def _set_date(widget, val):
-                if val:
-                    try:
-                        dt = datetime.strptime(val, "%Y-%m-%d")
-                        widget.setDate(QDate(dt.year, dt.month, dt.day))
-                    except Exception:
-                        pass
-
-            _set_date(self.inp_date_debut, a.get("date_semis"))
-            _set_date(self.inp_prem_recolte, a.get("date_premiere_recolte"))
-            _set_date(self.inp_dern_recolte, a.get("date_derniere_recolte"))
+            self.chk_sous_abris.setChecked(bool(a.get("sous_abris")))
+            mode = a.get("mode_plantation", "semis_direct")
+            if mode == "semis_direct": self.radio_semis.setChecked(True)
+            elif mode == "plant_fait": self.radio_fait.setChecked(True)
+            else: self.radio_achete.setChecked(True)
+            if a.get("longueur_planche_m"):
+                self.inp_longueur.setValue(a["longueur_planche_m"])
+            if a.get("espacement_cm"):
+                self.inp_espacement.setValue(a["espacement_cm"])
+            if a.get("nb_rangs"):
+                self.inp_nb_rangs.setValue(a["nb_rangs"])
             self.inp_nb_series.setValue(a.get("nb_series") or 1)
-            self.inp_intervalle.setValue(a.get("intervalle_semaines") or 0)
+            self.inp_intervalle.setValue(a.get("intervalle_semaines") or 2)
+            def _sd(w, v):
+                if v:
+                    try:
+                        dt = datetime.strptime(v, "%Y-%m-%d")
+                        w.setDate(QDate(dt.year, dt.month, dt.day))
+                    except Exception: pass
+            _sd(self.inp_date_debut, a.get("date_semis"))
+            _sd(self.inp_prem_recolte, a.get("date_premiere_recolte"))
+            _sd(self.inp_dern_recolte, a.get("date_derniere_recolte"))
+            if a.get("graines_par_trou"):
+                self.inp_graines_trou.setValue(a["graines_par_trou"])
+            if a.get("pct_sup_graines"):
+                self.inp_pct_sup.setValue(a["pct_sup_graines"])
+            if a.get("graines_par_gramme"):
+                self.inp_graines_gramme.setValue(a["graines_par_gramme"])
+            u = a.get("unite_rendement") or "kg"
+            if self.combo_unite.findText(u) < 0: self.combo_unite.addItem(u)
+            self.combo_unite.setCurrentText(u)
             self.inp_rendement.setValue(a.get("rendement_ml") or 0)
             self.inp_prix.setValue(a.get("prix_kg") or 0)
             self.inp_notes.setPlainText(a.get("notes") or "")
         except Exception:
             traceback.print_exc()
 
-    def _creer_culture(self):
-        dlg = DialogCultureRef(parent=self)
-        if dlg.exec() == QDialog.Accepted:
-            self._charger_combos()
-
     def _valider(self):
-        planche_id     = self.combo_planche.currentData()
         culture_ref_id = self.combo_culture.currentData()
-        if not planche_id:
-            self.lbl_err.setText("Sélectionnez une planche.")
+        if not culture_ref_id or culture_ref_id == -1:
+            self.lbl_err.setText("Sélectionnez ou créez une culture.")
             return
-        if not culture_ref_id:
-            self.lbl_err.setText("Sélectionnez une culture.")
-            return
-
         variete    = self.inp_variete.text().strip() or None
-        mode       = self.combo_mode.currentData()
-        date_debut = self.inp_date_debut.date().toString("yyyy-MM-dd")
-        date_prem  = self.inp_prem_recolte.date().toString("yyyy-MM-dd")
-        date_dern  = self.inp_dern_recolte.date().toString("yyyy-MM-dd")
-        nb_series  = self.inp_nb_series.value()
-        intervalle = self.inp_intervalle.value() or None
-        rendement  = self.inp_rendement.value() or None
-        prix       = self.inp_prix.value() or None
-        notes      = self.inp_notes.toPlainText().strip() or None
-
+        sous_abris = 1 if self.chk_sous_abris.isChecked() else 0
+        longueur   = self.inp_longueur.value() or None
+        espacement = self.inp_espacement.value() or None
+        nb_rangs   = self.inp_nb_rangs.value() or None
+        densite    = (nb_rangs / (espacement / 100.0)
+                      if espacement and nb_rangs else None)
+        nb_planches = self.inp_nb_planches.value()
+        nb_series   = self.inp_nb_series.value()
+        intervalle  = self.inp_intervalle.value() if nb_series > 1 else None
+        mode = ("semis_direct" if self.radio_semis.isChecked()
+                else "plant_fait" if self.radio_fait.isChecked()
+                else "plant_achete")
+        date_semis_base = self.inp_date_debut.date().toPython()
+        date_prem = self.inp_prem_recolte.date().toString("yyyy-MM-dd")
+        date_dern = self.inp_dern_recolte.date().toString("yyyy-MM-dd")
+        g_trou  = (self.inp_graines_trou.value()
+                   if not self.radio_achete.isChecked() else None)
+        pct_sup = (self.inp_pct_sup.value()
+                   if not self.radio_achete.isChecked() else None)
+        g_g     = self.inp_graines_gramme.value() or None
+        unite   = self.combo_unite.currentText() or "kg"
+        rend    = self.inp_rendement.value() or None
+        prix    = self.inp_prix.value() or None
+        notes   = self.inp_notes.toPlainText().strip() or None
         try:
             conn = get_connection()
             cur  = conn.cursor()
             if self.assolement_id:
                 cur.execute("""
                     UPDATE assolement SET
-                        planche_id=?, culture_ref_id=?, variete=?, annee=?,
-                        date_semis=?, date_premiere_recolte=?,
-                        date_derniere_recolte=?, nb_series=?,
-                        intervalle_semaines=?, mode_plantation=?,
-                        rendement_ml=?, prix_kg=?, notes=?
+                        culture_ref_id=?,variete=?,annee=?,
+                        date_semis=?,date_premiere_recolte=?,
+                        date_derniere_recolte=?,nb_series=?,
+                        intervalle_semaines=?,mode_plantation=?,
+                        longueur_planche_m=?,espacement_cm=?,
+                        nb_rangs=?,densite_m2=?,
+                        graines_par_trou=?,pct_sup_graines=?,
+                        graines_par_gramme=?,unite_rendement=?,
+                        rendement_ml=?,prix_kg=?,sous_abris=?,notes=?
                     WHERE id=?
-                """, (planche_id, culture_ref_id, variete, self.annee,
-                      date_debut, date_prem, date_dern,
+                """, (culture_ref_id, variete, self.annee,
+                      date_semis_base.strftime("%Y-%m-%d"), date_prem, date_dern,
                       nb_series, intervalle, mode,
-                      rendement, prix, notes, self.assolement_id))
+                      longueur, espacement, nb_rangs, densite,
+                      g_trou, pct_sup, g_g, unite, rend, prix,
+                      sous_abris, notes, self.assolement_id))
             else:
-                cur.execute("""
-                    INSERT INTO assolement
-                        (planche_id, culture_ref_id, variete, annee,
-                         date_semis, date_premiere_recolte,
-                         date_derniere_recolte, nb_series,
-                         intervalle_semaines, mode_plantation,
-                         rendement_ml, prix_kg, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (planche_id, culture_ref_id, variete, self.annee,
-                      date_debut, date_prem, date_dern,
-                      nb_series, intervalle, mode,
-                      rendement, prix, notes))
+                d_prem_base = datetime.strptime(date_prem, "%Y-%m-%d").date()
+                d_dern_base = datetime.strptime(date_dern, "%Y-%m-%d").date()
+                for s in range(nb_series):
+                    delta = timedelta(days=s * (intervalle or 0) * 7)
+                    d_sem = date_semis_base + delta
+                    d_pr  = (d_prem_base + delta).strftime("%Y-%m-%d")
+                    d_dr  = (d_dern_base + delta).strftime("%Y-%m-%d")
+                    for _ in range(nb_planches):
+                        cur.execute("""
+                            INSERT INTO assolement
+                            (planche_id,culture_ref_id,variete,annee,
+                             date_semis,date_premiere_recolte,
+                             date_derniere_recolte,nb_series,
+                             intervalle_semaines,mode_plantation,
+                             longueur_planche_m,espacement_cm,
+                             nb_rangs,densite_m2,
+                             graines_par_trou,pct_sup_graines,
+                             graines_par_gramme,unite_rendement,
+                             rendement_ml,prix_kg,sous_abris,notes)
+                            VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        """, (culture_ref_id, variete, self.annee,
+                              d_sem.strftime("%Y-%m-%d"), d_pr, d_dr,
+                              nb_series, intervalle, mode,
+                              longueur, espacement, nb_rangs, densite,
+                              g_trou, pct_sup, g_g, unite, rend, prix,
+                              sous_abris, notes))
             conn.commit()
             cur.close()
             self.accept()
@@ -1387,14 +1536,25 @@ class DialogCultureAssolement(QDialog):
             traceback.print_exc()
             self.lbl_err.setText(f"Erreur : {e}")
 
+    def _on_culture_changed(self, idx: int):
+        if self.combo_culture.itemData(idx) == -1:
+            dlg = DialogCultureRef(parent=self)
+            if dlg.exec() == QDialog.Accepted:
+                self._charger_combos()
+                # Sélectionner la nouvelle culture (dernière ajoutée)
+                self.combo_culture.setCurrentIndex(
+                    self.combo_culture.count() - 1)
+            else:
+                self.combo_culture.setCurrentIndex(1)
 
-# ── Dialog : Référentiel cultures ─────────────
+
+# ── Dialog référentiel cultures ───────────────
 class DialogCultureRef(QDialog):
     def __init__(self, culture_id: int = None, parent=None):
         super().__init__(parent)
         self.culture_id = culture_id
         self.setWindowTitle(
-            "Modifier la culture" if culture_id else "Nouvelle culture")
+            "Modifier" if culture_id else "Nouvelle culture (référentiel)")
         self.setMinimumWidth(360)
         self._build_ui()
         if culture_id:
@@ -1402,42 +1562,29 @@ class DialogCultureRef(QDialog):
 
     def _build_ui(self):
         lay = QVBoxLayout(self)
-        form = QFormLayout()
-        form.setSpacing(10)
-
+        form = QFormLayout(); form.setSpacing(10)
         self.inp_nom = QLineEdit()
-        self.inp_nom.setPlaceholderText("Ex: Tomate, Carotte, Poireau...")
+        self.inp_nom.setPlaceholderText("Ex: Tomate, Carotte...")
         form.addRow("Nom *", self.inp_nom)
-
         self.combo_famille = QComboBox()
         self.combo_famille.addItem("— Non classé —", None)
         for fam in get_familles():
             self.combo_famille.addItem(fam["nom"], fam["id"])
         form.addRow("Famille botanique", self.combo_famille)
-
-        coul_w = QWidget()
-        cl = QHBoxLayout(coul_w)
-        cl.setContentsMargins(0, 0, 0, 0)
+        cw = QWidget(); cl = QHBoxLayout(cw); cl.setContentsMargins(0,0,0,0)
         self.inp_couleur = QLineEdit()
-        self.inp_couleur.setPlaceholderText("#RRGGBB (optionnel)")
-        self.inp_couleur.setMaxLength(7)
-        self.inp_couleur.setFixedWidth(90)
-        self.btn_couleur = QPushButton("  ")
-        self.btn_couleur.setFixedSize(28, 28)
-        self.btn_couleur.clicked.connect(self._choisir_couleur)
+        self.inp_couleur.setPlaceholderText("#RRGGBB")
+        self.inp_couleur.setMaxLength(7); self.inp_couleur.setFixedWidth(90)
+        self.btn_c = QPushButton("  "); self.btn_c.setFixedSize(28, 28)
+        self.btn_c.clicked.connect(self._choisir_couleur)
         self.inp_couleur.textChanged.connect(self._maj_apercu)
-        cl.addWidget(self.inp_couleur)
-        cl.addWidget(self.btn_couleur)
-        cl.addStretch()
-        form.addRow("Couleur perso", coul_w)
-
+        cl.addWidget(self.inp_couleur); cl.addWidget(self.btn_c); cl.addStretch()
+        form.addRow("Couleur perso", cw)
         self.inp_notes = QLineEdit()
         form.addRow("Notes", self.inp_notes)
-
         self.lbl_err = QLabel("")
-        self.lbl_err.setStyleSheet("color: red;")
+        self.lbl_err.setStyleSheet("color:red;")
         form.addRow(self.lbl_err)
-
         lay.addLayout(form)
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         btns.accepted.connect(self._valider)
@@ -1467,32 +1614,28 @@ class DialogCultureRef(QDialog):
 
     def _maj_apercu(self, txt: str):
         if len(txt) == 7 and txt.startswith("#"):
-            self.btn_couleur.setStyleSheet(
-                f"background: {txt}; border: 1px solid #d1d5db;")
+            self.btn_c.setStyleSheet(
+                f"background:{txt};border:1px solid #d1d5db;")
 
     def _valider(self):
         nom = self.inp_nom.text().strip()
         if not nom:
             self.lbl_err.setText("Le nom est obligatoire.")
             return
-        famille_id = self.combo_famille.currentData()
-        couleur    = self.inp_couleur.text().strip() or None
-        notes      = self.inp_notes.text().strip() or None
+        fam = self.combo_famille.currentData()
+        c   = self.inp_couleur.text().strip() or None
+        nts = self.inp_notes.text().strip() or None
         try:
             conn = get_connection()
             cur  = conn.cursor()
             if self.culture_id:
-                cur.execute("""
-                    UPDATE cultures_ref SET
-                        nom=?, famille_id=?, couleur_perso=?, notes=?
-                    WHERE id=?
-                """, (nom, famille_id, couleur, notes, self.culture_id))
+                cur.execute(
+                    "UPDATE cultures_ref SET nom=?,famille_id=?,couleur_perso=?,notes=? WHERE id=?",
+                    (nom, fam, c, nts, self.culture_id))
             else:
-                cur.execute("""
-                    INSERT INTO cultures_ref
-                        (nom, famille_id, couleur_perso, notes)
-                    VALUES (?, ?, ?, ?)
-                """, (nom, famille_id, couleur, notes))
+                cur.execute(
+                    "INSERT INTO cultures_ref (nom,famille_id,couleur_perso,notes) VALUES (?,?,?,?)",
+                    (nom, fam, c, nts))
             conn.commit()
             cur.close()
             self.accept()
