@@ -701,6 +701,17 @@ def init_db():
     for table, colonnes in _MIGRATIONS.items():
         _migrer_colonnes(cur, table, colonnes)
 
+
+    cur.execute("""
+        UPDATE assolement SET longueur_planche_m = (
+            SELECT longueur_m FROM planches WHERE id=assolement.planche_id
+        )
+        WHERE planche_id IS NOT NULL
+        AND longueur_planche_m > (
+            SELECT longueur_m FROM planches WHERE id=assolement.planche_id
+        )
+    """)
+
     cur.execute("SELECT COUNT(*) FROM parametres_app")
     if cur.fetchone()[0] == 0:
         cur.execute("INSERT INTO parametres_app (id) VALUES (1)")

@@ -255,7 +255,7 @@ class MainWindow(QMainWindow):
         _section("Exploitation")
         _nav("Entreprise",           0)
         _nav("Parcelles",            1)
-        _nav("📋 Assolement",        2)
+        _nav("Assolement",        2)
         _nav("Irrigation",           3)
         from db import get_entreprise
         ent = get_entreprise()
@@ -275,7 +275,7 @@ class MainWindow(QMainWindow):
         _nav("Carnet de fertilisation", 10)
 
         _section("Récoltes")
-        _nav("🌾 Récoltes & CA",      11)
+        _nav("Récoltes & CA",      11)
 
         if role == "admin":
             _section("Administration")
