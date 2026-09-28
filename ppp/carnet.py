@@ -857,12 +857,11 @@ class DialogDecision(QDialog):
             conn = get_connection()
             cur = conn.cursor()
             cur.execute("""
-                SELECT cp.id, p.id AS parcelle_id, p.nom, cp.espece, cp.variete
-                FROM parcelles p
-                JOIN cultures_parcelle cp ON cp.parcelle_id = p.id
-                WHERE p.actif = 1 AND cp.actif = 1
-                  AND cp.categorie IN ('maraichage', 'arbo')
-                ORDER BY p.nom, cp.espece
+                SELECT ca.id, ca.parcelle_id, p.nom, ca.espece, ca.variete
+                FROM cultures_actives ca
+                JOIN parcelles p ON p.id = ca.parcelle_id
+                WHERE p.actif = 1
+                ORDER BY p.nom, ca.espece
             """)
             for row in cur.fetchall():
                 culture_id, parcelle_id, nom_parcelle, espece, variete = row
@@ -1387,22 +1386,21 @@ class DialogDecisionPreRempli(QDialog):
             conn = get_connection()
             cur = conn.cursor()
             cur.execute("""
-                SELECT cp.id, p.id AS parcelle_id, p.nom, cp.espece, cp.variete
-                FROM parcelles p
-                JOIN cultures_parcelle cp ON cp.parcelle_id = p.id
-                WHERE p.actif = 1 AND cp.actif = 1
-                  AND cp.categorie IN ('maraichage', 'arbo')
-                ORDER BY p.nom, cp.espece
+                SELECT ca.id, ca.parcelle_id, p.nom, ca.espece, ca.variete
+                FROM cultures_actives ca
+                JOIN parcelles p ON p.id = ca.parcelle_id
+                WHERE p.actif = 1
+                ORDER BY p.nom, ca.espece
             """)
             rows = cur.fetchall()
             cur.close()
 
-            from db import get_categories_ppp_culture
+            from db import get_categories_ppp_assolement
 
             premiere_compatible = None
             for row in rows:
                 culture_id, parcelle_id, nom_parcelle, espece, variete = row
-                cats_ppp = get_categories_ppp_culture(culture_id)
+                cats_ppp = get_categories_ppp_assolement(culture_id)
                 compatible = any(
                     c.lower() == (self.culture or "").lower() for c in cats_ppp)
 

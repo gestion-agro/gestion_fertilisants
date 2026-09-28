@@ -7,6 +7,7 @@ import json
 import os
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
+from PySide6.QtCore import QObject, Qt
 
 from paths import ensure_user_data, ICON_FILE
 from views.main_window import MainWindow
@@ -34,10 +35,32 @@ def main():
 
     app = QApplication(sys.argv)
     from PySide6.QtCore import QTranslator, QLibraryInfo, QLocale
+    locale = QLocale(QLocale.Language.French, QLocale.Country.France)
+    QLocale.setDefault(locale)
     translator = QTranslator()
     path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
     translator.load("qt_fr", path)
     app.installTranslator(translator)
+
+    from PySide6.QtCore import QEvent
+    from PySide6.QtWidgets import QDoubleSpinBox
+
+    class PointToCommaFilter(QObject):
+        def eventFilter(self, obj, event):
+            if (event.type() == QEvent.KeyPress and
+                    isinstance(obj, QDoubleSpinBox)):
+                if event.key() == Qt.Key_Period:
+                    from PySide6.QtGui import QKeyEvent
+                    new_event = QKeyEvent(
+                        QEvent.KeyPress, Qt.Key_Comma,
+                        event.modifiers(), ",")
+                    QApplication.sendEvent(obj, new_event)
+                    return True
+            return False
+
+    point_filter = PointToCommaFilter()
+    app.installEventFilter(point_filter)
+
     app.setWindowIcon(QIcon(str(ICON_FILE)))
 
     try:    

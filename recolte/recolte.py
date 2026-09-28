@@ -226,16 +226,21 @@ class RecoltePage(QWidget):
             conn = get_connection()
             cur  = conn.cursor()
             cur.execute("""
-                SELECT cp.id, cp.espece, cp.variete, cp.categorie,
-                       cp.surface_occupee_m2, cp.nb_rangs,
-                       cp.longueur_planche, cp.nb_planches,
-                       cp.rendement_ml, cp.rendement_ha,
-                       cp.prix_moyen_kg, cp.prix_moyen_tonne,
+                SELECT ca.id, ca.espece, ca.variete,
+                       ca.categorie,
+                       ca.surface_occupee_m2,
+                       NULL AS nb_rangs,
+                       NULL AS longueur_planche,
+                       NULL AS nb_planches,
+                       ca.rendement_ml,
+                       NULL AS rendement_ha,
+                       ca.prix_moyen_kg,
+                       NULL AS prix_moyen_tonne,
                        p.nom AS parcelle_nom
-                FROM cultures_parcelle cp
-                JOIN parcelles p ON p.id = cp.parcelle_id
-                WHERE cp.actif = 1 AND cp.categorie IN ('maraichage', 'arbo')
-                ORDER BY p.nom, cp.espece
+                FROM cultures_actives ca
+                JOIN parcelles p ON p.id = ca.parcelle_id
+                WHERE p.actif = 1
+                ORDER BY p.nom, ca.espece
             """)
             cultures = [dict(r) for r in cur.fetchall()]
             cur.close()
@@ -289,16 +294,21 @@ class RecoltePage(QWidget):
             conn = get_connection()
             cur  = conn.cursor()
             cur.execute("""
-                SELECT cp.id, cp.espece, cp.variete, cp.categorie,
-                       cp.surface_occupee_m2, cp.nb_rangs,
-                       cp.longueur_planche, cp.nb_planches,
-                       cp.rendement_ml, cp.rendement_ha,
-                       cp.prix_moyen_kg, cp.prix_moyen_tonne,
+                SELECT ca.id, ca.espece, ca.variete,
+                       ca.categorie,
+                       ca.surface_occupee_m2,
+                       NULL AS nb_rangs,
+                       NULL AS longueur_planche,
+                       NULL AS nb_planches,
+                       ca.rendement_ml,
+                       NULL AS rendement_ha,
+                       ca.prix_moyen_kg,
+                       NULL AS prix_moyen_tonne,
                        p.nom AS parcelle_nom
-                FROM cultures_parcelle cp
-                JOIN parcelles p ON p.id = cp.parcelle_id
-                WHERE cp.actif = 1 AND cp.categorie IN ('maraichage', 'arbo')
-                ORDER BY p.nom, cp.espece
+                FROM cultures_actives ca
+                JOIN parcelles p ON p.id = ca.parcelle_id
+                WHERE p.actif = 1
+                ORDER BY p.nom, ca.espece
             """)
             cultures = [dict(r) for r in cur.fetchall()]
             cur.close()

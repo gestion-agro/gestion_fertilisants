@@ -980,6 +980,23 @@ class GrilleCanvas(QWidget):
                 self._build_lignes(); self._update_size(); self.update()
                 return
 
+        if event.button() == Qt.RightButton:
+            for rect, a in self._blocs:
+                if rect.contains(pos):
+                    self._menu_bloc(a, pos); return
+
+        if event.button() == Qt.LeftButton:
+            for rect, a in self._blocs:
+                if rect.contains(pos):
+                    if self.on_detail:
+                        self.on_detail(a)
+                    if self.peut_ecrire:
+                        self._drag_candidat = a
+                        self._drag_origin   = pos
+                    return
+            self._drag_candidat = None
+            self._drag_origin   = None
+
     def mouseMoveEvent(self, event):
         pos = event.pos()
         if (self._drag_candidat and self._drag_origin and

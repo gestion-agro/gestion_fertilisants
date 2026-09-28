@@ -814,6 +814,33 @@ def get_categories_ppp_culture(culture_parcelle_id: int) -> list:
     except Exception:
         return []
 
+def get_categories_ppp_assolement(assolement_id: int) -> list:
+    """Retourne les catégories PPP pour une culture de l'assolement.
+    Cherche d'abord dans assolement_categories_ppp, sinon utilise
+    le nom de la culture comme catégorie par défaut."""
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        # Catégories explicitement assignées
+        cur.execute(
+            "SELECT culture_ppp FROM assolement_categories_ppp "
+            "WHERE assolement_id=? ORDER BY culture_ppp",
+            (assolement_id,))
+        cats = [row[0] for row in cur.fetchall()]
+        if cats:
+            cur.close(); return cats
+        # Fallback : nom de la culture comme catégorie
+        cur.execute("""
+            SELECT cr.nom FROM assolement a
+            JOIN cultures_ref cr ON cr.id=a.culture_ref_id
+            WHERE a.id=?
+        """, (assolement_id,))
+        row = cur.fetchone()
+        cur.close()
+        return [row[0].lower()] if row else []
+    except Exception:
+        return []
+
 
 def set_categories_ppp_culture(culture_parcelle_id: int, categories: list):
     try:
@@ -834,15 +861,26 @@ def set_categories_ppp_culture(culture_parcelle_id: int, categories: list):
         debug.debug(f"[DB] Erreur set_categories_ppp_culture : {e}")
 
 
-def produit_homologue_pour_culture(produit_id: int, culture_parcelle_id: int) -> bool:
+def produit_homologue_pour_culture(produit_id: int, culture_id: int) -> bool:
+    """Vérifie si un produit est homologué pour une culture.
+    Cherche dans assolement_categories_ppp ET parcelle_categories_ppp."""
     try:
         conn = get_connection()
-        cur = conn.cursor()
+        cur  = conn.cursor()
+        # Via assolement
+        cur.execute("""
+            SELECT COUNT(*) FROM assolement_categories_ppp acp
+            JOIN ppp_usages u ON u.culture = acp.culture_ppp
+            WHERE acp.assolement_id = ? AND u.produit_id = ?
+        """, (culture_id, produit_id))
+        if cur.fetchone()[0] > 0:
+            cur.close(); return True
+        # Via cultures_parcelle (compatibilité)
         cur.execute("""
             SELECT COUNT(*) FROM parcelle_categories_ppp pcp
             JOIN ppp_usages u ON u.culture = pcp.culture_ppp
             WHERE pcp.culture_parcelle_id = ? AND u.produit_id = ?
-        """, (culture_parcelle_id, produit_id))
+        """, (culture_id, produit_id))
         count = cur.fetchone()[0]
         cur.close()
         return count > 0
@@ -1365,22 +1403,23 @@ def init_recoltes(cur):
 
 # ── Helpers Récolte ───────────────────────────
 def calculer_rendement_previsionnel(culture: dict) -> float:
-    """Calcule le rendement prévisionnel en kg pour une culture donnée.
-
-    Maraîchage : rendement_ml (kg/ml) × nb_rangs × longueur_planche × nb_planches
-    Arbo       : rendement_ha (t/ha)  × surface_occupee_m2 / 10000 × 1000
-    """
-    cat = culture.get("categorie", "")
-    if cat == "maraichage":
-        rend_ml   = culture.get("rendement_ml") or 0
-        nb_rangs  = culture.get("nb_rangs") or 0
-        longueur  = culture.get("longueur_planche") or 0
-        nb_plnch  = culture.get("nb_planches") or 0
+    """Calcule le rendement prévisionnel en kg.
+    Compatible cultures_parcelle ET cultures_actives (assolement)."""
+    cat = culture.get("categorie", "maraichage")
+    if cat in ("maraichage", None, ""):
+        rend_ml = culture.get("rendement_ml") or 0
+        # Via assolement : longueur directe
+        if culture.get("surface_occupee_m2"):
+            return rend_ml * culture.get("surface_occupee_m2", 0)
+        # Via cultures_parcelle : nb_rangs × longueur × nb_planches
+        nb_rangs = culture.get("nb_rangs") or 1
+        longueur = culture.get("longueur_planche") or 0
+        nb_plnch = culture.get("nb_planches") or 1
         return rend_ml * nb_rangs * longueur * nb_plnch
     elif cat == "arbo":
-        rend_ha  = culture.get("rendement_ha") or 0   # t/ha
-        surf_m2  = culture.get("surface_occupee_m2") or 0
-        return rend_ha * (surf_m2 / 10000) * 1000     # kg
+        rend_ha = culture.get("rendement_ha") or 0
+        surf_m2 = culture.get("surface_occupee_m2") or 0
+        return rend_ha * (surf_m2 / 10000) * 1000
     return 0.0
 
 
@@ -1617,6 +1656,38 @@ def init_assolement(cur):
         CREATE INDEX IF NOT EXISTS idx_irrsysp_sys
         ON irrigation_systeme_planches(systeme_id)
     """)
+
+    # Vue de compatibilité : cultures_actives remplace cultures_parcelle
+    cur.execute("""
+        CREATE VIEW IF NOT EXISTS cultures_actives AS
+        SELECT
+            a.id,
+            a.planche_id,
+            pl.parcelle_id,
+            cr.nom          AS espece,
+            a.variete,
+            cr.famille_id,
+            fb.nom          AS famille_nom,
+            fb.couleur_hex  AS famille_couleur,
+            cr.couleur_perso,
+            a.date_semis,
+            a.date_premiere_recolte,
+            a.date_derniere_recolte,
+            a.longueur_planche_m AS surface_occupee_m2,
+            a.rendement_ml,
+            a.prix_kg       AS prix_moyen_kg,
+            a.annee,
+            'maraichage' AS categorie,
+            1               AS actif,
+            cr.nom          AS culture_nom,
+            cr.id           AS culture_ref_id
+        FROM assolement a
+        JOIN cultures_ref cr ON cr.id = a.culture_ref_id
+        LEFT JOIN familles_botaniques fb ON fb.id = cr.famille_id
+        LEFT JOIN planches pl ON pl.id = a.planche_id
+        WHERE a.planche_id IS NOT NULL
+    """)
+
 
     # Pré-remplir les familles botaniques si vide
     cur.execute("SELECT COUNT(*) FROM familles_botaniques")
